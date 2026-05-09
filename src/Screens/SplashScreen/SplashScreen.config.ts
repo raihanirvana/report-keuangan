@@ -1,0 +1,4 @@
+const SPLASH_MASCOT_URI =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuAZHS75bZW4XslKFvyzfeOyzRfveXvBqH8svU-Uv-lUUwb_rrux-ksNK7snU9HCYryyOpbYCS1fbhhh4mqEPe7YnXq1C90JBMTcnFYG8WB85ZzH1AQZXnHn94tb5MBewauhX9oEY0jn78ELgol6SIIN-TdnYbKLoehK_2rTrvCymDlFFIVgqSiXbc27xvGDgQ8y51EAKcWs_kMNVcwjMuwV8TmhHjuagvz-T374ac7sl_c8ZLPW_Og7yxVs6jpY7X9S7EMVnPs9SjdT';
+
+export { SPLASH_MASCOT_URI };

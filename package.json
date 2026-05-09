@@ -6,7 +6,8 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint src index.js --ext .js,.jsx,.ts,.tsx --cache",
-    "start": "react-native start"
+    "start": "react-native start",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.85.3",
