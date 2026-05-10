@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Animated, Text, View } from 'react-native';
 
-import DottedPattern from './DottedPattern.component';
+import DottedPattern from '../../Components/DottedPattern';
+
 import { SPLASH_MASCOT_URI } from './SplashScreen.config';
 import styles from './SplashScreen.styles';
 

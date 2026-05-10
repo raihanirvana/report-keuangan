@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useWindowDimensions, View } from 'react-native';
 
-import styles from './SplashScreen.styles';
+import styles from './DottedPattern.styles';
 
 const DOT_SIZE = 6;
 const DOT_SPACING = 34;
@@ -27,15 +27,7 @@ function DottedPattern() {
       {dots.map((dot, index) => (
         <View
           key={index}
-          style={[
-            styles.dot,
-            {
-              height: DOT_SIZE,
-              left: dot.left,
-              top: dot.top,
-              width: DOT_SIZE,
-            },
-          ]}
+          style={[styles.dot, { height: DOT_SIZE, width: DOT_SIZE, ...dot }]}
         />
       ))}
     </View>

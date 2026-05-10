@@ -17,12 +17,6 @@ const styles = StyleSheet.create({
     top: '37%',
     width: '100%',
   },
-  dot: {
-    backgroundColor: colors.accentPink,
-    borderRadius: 3,
-    opacity: 0.78,
-    position: 'absolute',
-  },
   logo: {
     height: 178,
     resizeMode: 'contain',
@@ -36,9 +30,6 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     opacity: 0.86,
     width: 256,
-  },
-  pattern: {
-    ...StyleSheet.absoluteFill,
   },
   sparkle: {
     fontSize: 38,
