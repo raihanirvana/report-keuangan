@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { login, register } from '../../Services';
+import type { AuthUser } from '../../Services';
 import { setAuthTokens } from '../../Utils/authStorage';
 
 import styles from './LoginScreen.styles';
@@ -33,7 +34,7 @@ type LoginFieldProps = {
 };
 
 type LoginScreenProps = {
-  onLogin?: () => void;
+  onLogin?: (user: AuthUser) => void;
 };
 
 type LoginFormStateParams = {
@@ -271,8 +272,12 @@ async function handleAuthSuccess(
   onLogin: LoginScreenProps['onLogin'],
 ) {
   const response = await requestAuth(mode, name, email, password);
-  await setAuthTokens(response.data.accessToken, response.data.refreshToken);
-  onLogin?.();
+  await setAuthTokens(
+    response.data.accessToken,
+    response.data.refreshToken,
+    response.data.user,
+  );
+  onLogin?.(response.data.user);
 }
 
 async function handleSignupSuccess(

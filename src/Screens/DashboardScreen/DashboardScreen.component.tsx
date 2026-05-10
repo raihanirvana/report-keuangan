@@ -12,6 +12,7 @@ import {
   type BottomSheetDragHandleProps,
 } from '../../Components/BottomSheet';
 import AddTransactionSheet from '../../Navigation/AppTabs/AddTransactionSheet.component';
+import type { AuthUser } from '../../Services';
 import { colors } from '../../Theme';
 
 import {
@@ -83,6 +84,7 @@ type DashboardSheetsProps = {
 };
 type DashboardScreenProps = {
   onLogout?: () => void;
+  user?: AuthUser | null;
 };
 type LimitSheetView = 'create' | 'list';
 type HistoryFilter = 'Pemasukan' | 'Pengeluaran' | 'Pindah Dana' | 'Semua';
@@ -117,7 +119,7 @@ const monthOptions = [
 ] as const;
 const yearOptions = ['2024', '2025', '2026'] as const;
 
-function Header({ onLogout }: DashboardScreenProps) {
+function Header({ onLogout, user }: DashboardScreenProps) {
   return (
     <View style={styles.header}>
       <View style={styles.headerIntro}>
@@ -126,7 +128,7 @@ function Header({ onLogout }: DashboardScreenProps) {
         </View>
         <View>
           <Text style={styles.hello}>HALO, KAK!</Text>
-          <Text style={styles.name}>Caca Cute ✨</Text>
+          <Text style={styles.name}>{user?.name ?? 'Sahabat Cuan'} ✨</Text>
         </View>
       </View>
       <Pressable
@@ -1395,10 +1397,11 @@ function DashboardContent(props: {
   onOpenUsagePeriod: () => void;
   onOpenWalletSheet: () => void;
   onLogout?: () => void;
+  user?: AuthUser | null;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.pageContent}>
-      <Header onLogout={props.onLogout} />
+      <Header onLogout={props.onLogout} user={props.user} />
       <BalanceCard onOpenWalletSheet={props.onOpenWalletSheet} />
       <SummaryCards onOpenHistory={props.onOpenFullHistory} />
       <UsageSection
@@ -1512,7 +1515,7 @@ function UsagePeriodOverlay(props: {
   );
 }
 
-function DashboardScreen({ onLogout }: DashboardScreenProps) {
+function DashboardScreen({ onLogout, user }: DashboardScreenProps) {
   const sheets = useDashboardSheetState();
   const period = useUsagePeriodState();
   const filterLabel = `${period.selectedMonth} ${period.selectedYear}`;
@@ -1526,6 +1529,7 @@ function DashboardScreen({ onLogout }: DashboardScreenProps) {
         onOpenUsagePeriod={sheets.onOpenUsagePeriod}
         onOpenWalletSheet={sheets.onOpenWalletSheet}
         onLogout={onLogout}
+        user={user}
       />
       <FloatingAddButton onPress={sheets.onOpenAddSheet} />
       <DashboardSheets {...sheets} />

@@ -2,6 +2,7 @@ import { apiRequest } from '../Api/apiClient';
 
 import type {
   AuthTokenResponse,
+  AuthUser,
   LoginPayload,
   RegisterPayload,
 } from './auth.types';
@@ -20,7 +21,15 @@ function register(payload: RegisterPayload) {
   });
 }
 
+function getMe(token: string) {
+  return apiRequest<AuthUser>('/me', {
+    method: 'GET',
+    token,
+  });
+}
+
 export {
+  getMe,
   login,
   register,
 };
