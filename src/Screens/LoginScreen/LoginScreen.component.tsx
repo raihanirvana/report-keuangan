@@ -14,12 +14,10 @@ import {
   View,
 } from 'react-native';
 
-import { setAuthToken } from '../../Utils/authStorage';
+import { login, register } from '../../Services';
+import { setAuthTokens } from '../../Utils/authStorage';
 
 import styles from './LoginScreen.styles';
-
-const DUMMY_EMAIL = 'test@mail.com';
-const DUMMY_PASSWORD = 'password';
 
 type AuthMode = 'login' | 'signup';
 
@@ -51,6 +49,7 @@ type LoginFormStateParams = {
   setIsPasswordVisible: Dispatch<SetStateAction<boolean>>;
   setName: (value: string) => void;
   setPassword: (value: string) => void;
+  successMessage: string;
   toggleMode: () => void;
 };
 
@@ -188,13 +187,6 @@ function getCredentialError(mode: AuthMode, email: string, password: string) {
     return 'Kata sandi minimal 6 karakter.';
   }
 
-  if (
-    mode === 'login'
-    && (email !== DUMMY_EMAIL || password !== DUMMY_PASSWORD)
-  ) {
-    return 'Email atau kata sandi belum cocok.';
-  }
-
   return '';
 }
 
@@ -230,29 +222,134 @@ function LoginButton(props: {
   );
 }
 
-function submitLogin(
+function getAuthPayload(mode: AuthMode, name: string, email: string) {
+  if (mode === 'signup') {
+    return {
+      email: email.trim().toLowerCase(),
+      name: name.trim(),
+    };
+  }
+
+  return {
+    email: email.trim().toLowerCase(),
+  };
+}
+
+async function requestAuth(
+  mode: AuthMode,
+  name: string,
+  email: string,
+  password: string,
+) {
+  const authPayload = getAuthPayload(mode, name, email);
+
+  if (mode === 'signup') {
+    return register({
+      ...authPayload,
+      name: name.trim(),
+      password,
+    });
+  }
+
+  return login({
+    email: authPayload.email,
+    password,
+  });
+}
+
+function getAuthErrorMessage(authError: unknown) {
+  return authError instanceof Error
+    ? authError.message
+    : 'Login gagal, coba lagi ya.';
+}
+
+async function handleAuthSuccess(
   mode: AuthMode,
   name: string,
   email: string,
   password: string,
   onLogin: LoginScreenProps['onLogin'],
-  setErrorMessage: (value: string) => void,
-  setLoading: (value: boolean) => void,
 ) {
-  const error = getLoginError(mode, name, email.trim(), password);
+  const response = await requestAuth(mode, name, email, password);
+  await setAuthTokens(response.data.accessToken, response.data.refreshToken);
+  onLogin?.();
+}
 
-  setErrorMessage(error);
+async function handleSignupSuccess(
+  name: string,
+  email: string,
+  password: string,
+  setSuccessMessage: (value: string) => void,
+  setMode: Dispatch<SetStateAction<AuthMode>>,
+) {
+  await requestAuth('signup', name, email, password);
+  setSuccessMessage('Akun berhasil dibuat. Silakan masuk dulu ya.');
+  setMode('login');
+}
 
-  if (error) {
+type LoginSubmitParams = {
+  onLogin: LoginScreenProps['onLogin'];
+  setErrorMessage: (value: string) => void;
+  setLoading: (value: boolean) => void;
+  setMode: Dispatch<SetStateAction<AuthMode>>;
+  setSuccessMessage: (value: string) => void;
+};
+
+async function submitAuthRequest(
+  mode: AuthMode,
+  name: string,
+  email: string,
+  password: string,
+  params: Pick<LoginSubmitParams, 'onLogin' | 'setMode' | 'setSuccessMessage'>,
+) {
+  if (mode === 'signup') {
+    await handleSignupSuccess(
+      name,
+      email,
+      password,
+      params.setSuccessMessage,
+      params.setMode,
+    );
+
     return;
   }
 
-  setLoading(true);
-  setTimeout(async () => {
-    await setAuthToken();
-    setLoading(false);
-    onLogin?.();
-  }, 600);
+  await handleAuthSuccess(mode, name, email, password, params.onLogin);
+}
+
+function validateLoginInput(
+  mode: AuthMode,
+  name: string,
+  email: string,
+  password: string,
+  setErrorMessage: (value: string) => void,
+) {
+  const error = getLoginError(mode, name, email.trim(), password);
+  setErrorMessage(error);
+
+  return !error;
+}
+
+async function submitLogin(
+  mode: AuthMode,
+  name: string,
+  email: string,
+  password: string,
+  params: LoginSubmitParams,
+) {
+  if (!validateLoginInput(mode, name, email, password, params.setErrorMessage)) {
+    return;
+  }
+
+  params.setSuccessMessage('');
+  params.setLoading(true);
+  try {
+    await submitAuthRequest(mode, name, email, password, params);
+  } catch (authError) {
+    params.setErrorMessage(getAuthErrorMessage(authError));
+  } finally {
+    params.setLoading(false);
+  }
 }
 
 function getAuthModeCopy(mode: AuthMode) {
@@ -285,6 +382,7 @@ function getLoginFormState(params: LoginFormStateParams) {
     name: params.name,
     mode: params.mode,
     password: params.password,
+    successMessage: params.successMessage,
     setEmail: params.setEmail,
     setIsPasswordVisible: params.setIsPasswordVisible,
     setName: params.setName,
@@ -311,51 +409,98 @@ function useAuthFields() {
   };
 }
 
+function useLoginState() {
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setLoading] = useState(false);
+  const [mode, setMode] = useState<AuthMode>('login');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  return {
+    errorMessage,
+    isLoading,
+    mode,
+    setErrorMessage,
+    setLoading,
+    setMode,
+    setSuccessMessage,
+    successMessage,
+  };
+}
+
+function createLoginHandlers(
+  fields: ReturnType<typeof useAuthFields>,
+  state: ReturnType<typeof useLoginState>,
+  onLogin: LoginScreenProps['onLogin'],
+) {
+  return {
+    handleLogin: createLoginHandler(
+      state.mode,
+      fields,
+      onLogin,
+      state.setErrorMessage,
+      state.setLoading,
+      state.setMode,
+      state.setSuccessMessage,
+    ),
+    toggleMode: createModeToggle(
+      state.setMode,
+      state.setErrorMessage,
+      state.setSuccessMessage,
+    ),
+  };
+}
+
 function createLoginHandler(
   mode: AuthMode,
   fields: ReturnType<typeof useAuthFields>,
   onLogin: LoginScreenProps['onLogin'],
   setErrorMessage: (value: string) => void,
   setLoading: (value: boolean) => void,
+  setMode: Dispatch<SetStateAction<AuthMode>>,
+  setSuccessMessage: (value: string) => void,
 ) {
-  return () => submitLogin(
-    mode,
-    fields.name,
-    fields.email,
-    fields.password,
-    onLogin,
-    setErrorMessage,
-    setLoading,
-  );
+  return async () => {
+    await submitLogin(
+      mode,
+      fields.name,
+      fields.email,
+      fields.password,
+      {
+        onLogin,
+        setErrorMessage,
+        setLoading,
+        setMode,
+        setSuccessMessage,
+      },
+    );
+  };
 }
 
 function createModeToggle(
   setMode: Dispatch<SetStateAction<AuthMode>>,
   setErrorMessage: (value: string) => void,
+  setSuccessMessage: (value: string) => void,
 ) {
   return () => {
     setErrorMessage('');
+    setSuccessMessage('');
     setMode(value => (value === 'login' ? 'signup' : 'login'));
   };
 }
 
 function useLoginForm({ onLogin }: LoginScreenProps) {
   const fields = useAuthFields();
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isLoading, setLoading] = useState(false);
-  const [mode, setMode] = useState<AuthMode>('login');
-  const handleLogin = createLoginHandler(
-    mode, fields, onLogin, setErrorMessage, setLoading,
-  );
-  const toggleMode = createModeToggle(setMode, setErrorMessage);
+  const state = useLoginState();
+  const handlers = createLoginHandlers(fields, state, onLogin);
 
   return getLoginFormState({
     ...fields,
-    errorMessage,
-    handleLogin,
-    isLoading,
-    mode,
-    toggleMode,
+    errorMessage: state.errorMessage,
+    handleLogin: handlers.handleLogin,
+    isLoading: state.isLoading,
+    mode: state.mode,
+    successMessage: state.successMessage,
+    toggleMode: handlers.toggleMode,
   });
 }
 
@@ -383,7 +528,7 @@ function LoginFields(props: ReturnType<typeof useLoginForm>) {
         icon="email"
         label="Email Kamu"
         onChangeText={props.setEmail}
-        placeholder="test@mail.com"
+        placeholder="nama@email.com"
         value={props.email}
       />
       <LoginField
@@ -392,7 +537,7 @@ function LoginFields(props: ReturnType<typeof useLoginForm>) {
         label="Kata Sandi"
         onChangeText={props.setPassword}
         onToggleSecure={() => props.setIsPasswordVisible(value => !value)}
-        placeholder="password"
+        placeholder="••••••••"
         secureTextEntry={!props.isPasswordVisible}
         value={props.password}
       />
@@ -432,6 +577,9 @@ function LoginForm(props: LoginScreenProps) {
       <LoginFields {...form} />
       {!!form.errorMessage && (
         <Text style={styles.errorText}>{form.errorMessage}</Text>
+      )}
+      {!!form.successMessage && (
+        <Text style={styles.successText}>{form.successMessage}</Text>
       )}
       <ForgotPasswordLink isVisible={!form.isSignup} />
       <LoginButton

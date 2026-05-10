@@ -245,6 +245,15 @@ const styles = StyleSheet.create({
     maxWidth: 280,
     textAlign: 'center',
   },
+  successText: {
+    color: colors.secondary,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 14,
+    marginTop: -6,
+    textAlign: 'center',
+  },
   title: {
     color: colors.slate900,
     fontFamily: typography.fontFamily,
