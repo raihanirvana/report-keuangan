@@ -86,6 +86,15 @@ const styles = StyleSheet.create({
     height: 8,
     width: 8,
   },
+  errorText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 14,
+    marginTop: -6,
+    textAlign: 'center',
+  },
   fieldGroup: {
     gap: 8,
     marginBottom: 18,
@@ -144,6 +153,9 @@ const styles = StyleSheet.create({
     shadowOffset: { height: 8, width: 0 },
     shadowOpacity: 0.42,
     shadowRadius: 18,
+  },
+  loginButtonDisabled: {
+    opacity: 0.52,
   },
   loginButtonText: {
     color: colors.slate900,

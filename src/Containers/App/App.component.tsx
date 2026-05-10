@@ -7,6 +7,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import { DashboardScreen, LoginScreen, SplashScreen } from '../../Screens';
+import { getAuthToken } from '../../Utils/authStorage';
 
 import styles from './App.styles';
 
@@ -18,11 +19,13 @@ function getSafeAreaStyle(isSplashVisible: boolean, isLoggedIn: boolean) {
 
 const safeAreaEdges: Edge[] = ['top', 'bottom'];
 
-function AppContent(props: {
+type AppContentProps = {
   isLoggedIn: boolean;
   isSplashVisible: boolean;
   onLogin: () => void;
-}) {
+};
+
+function AppContent(props: AppContentProps) {
   if (props.isSplashVisible) {
     return <SplashScreen />;
   }
@@ -34,25 +37,58 @@ function AppContent(props: {
   return <DashboardScreen />;
 }
 
-function App() {
+function updateAuthState(
+  token: string | null,
+  isMounted: boolean,
+  setLoggedIn: (value: boolean) => void,
+  setSplashVisible: (value: boolean) => void,
+) {
+  if (isMounted) {
+    setLoggedIn(!!token);
+    setSplashVisible(false);
+  }
+}
+
+function useAuthBootstrap() {
   const [isSplashVisible, setSplashVisible] = useState(true);
   const [isLoggedIn, setLoggedIn] = useState(false);
-  const safeAreaStyle = getSafeAreaStyle(isSplashVisible, isLoggedIn);
 
   useEffect(() => {
-    const timer = setTimeout(() => setSplashVisible(false), 1800);
+    let isMounted = true;
+    const checkAuthToken = async () => {
+      const token = await getAuthToken();
+      updateAuthState(token, isMounted, setLoggedIn, setSplashVisible);
+    };
+    const timer = setTimeout(checkAuthToken, 1800);
 
-    return () => clearTimeout(timer);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, []);
+
+  return {
+    isLoggedIn,
+    isSplashVisible,
+    setLoggedIn,
+  };
+}
+
+function App() {
+  const auth = useAuthBootstrap();
+  const safeAreaStyle = getSafeAreaStyle(
+    auth.isSplashVisible,
+    auth.isLoggedIn,
+  );
 
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView edges={safeAreaEdges} style={safeAreaStyle}>
         <AppContent
-          isLoggedIn={isLoggedIn}
-          isSplashVisible={isSplashVisible}
-          onLogin={() => setLoggedIn(true)}
+          isLoggedIn={auth.isLoggedIn}
+          isSplashVisible={auth.isSplashVisible}
+          onLogin={() => auth.setLoggedIn(true)}
         />
       </SafeAreaView>
     </SafeAreaProvider>
