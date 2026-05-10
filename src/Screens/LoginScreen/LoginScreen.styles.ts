@@ -254,6 +254,41 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
+  switchModeAction: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  switchModeButton: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  switchModeText: {
+    color: colors.slate600,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  userBody: {
+    borderColor: colors.accentPink,
+    borderRadius: 9,
+    borderWidth: 2,
+    height: 11,
+    width: 22,
+  },
+  userHead: {
+    borderColor: colors.accentPink,
+    borderRadius: 6,
+    borderWidth: 2,
+    height: 12,
+    marginBottom: 2,
+    width: 12,
+  },
+  userIcon: {
+    alignItems: 'center',
+    height: 26,
+    justifyContent: 'center',
+    width: 26,
+  },
 });
 
 export default styles;

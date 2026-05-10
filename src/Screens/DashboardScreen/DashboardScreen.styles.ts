@@ -28,6 +28,48 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(202, 240, 248, 0.55)',
     borderColor: 'rgba(78, 168, 222, 0.16)',
   },
+  addLimitCategoryButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 204, 213, 0.08)',
+    borderColor: 'rgba(238, 43, 108, 0.22)',
+    borderRadius: 24,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    justifyContent: 'center',
+    marginTop: 6,
+    paddingVertical: 20,
+  },
+  addLimitCategoryText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  addWalletButton: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderColor: 'rgba(238, 43, 108, 0.3)',
+    borderRadius: 22,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    marginTop: 26,
+    paddingVertical: 19,
+  },
+  addWalletIcon: {
+    color: colors.primary,
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 26,
+  },
+  addWalletText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 15,
+    fontWeight: '800',
+  },
   balanceBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.24)',
     borderColor: 'rgba(255, 255, 255, 0.22)',
@@ -278,6 +320,34 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 22,
   },
+  logoutButton: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderColor: 'rgba(238, 43, 108, 0.12)',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 46,
+    paddingHorizontal: 12,
+  },
+  logoutIcon: {
+    color: colors.primary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  logoutText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  blueLimitProgress: {
+    backgroundColor: colors.secondary,
+  },
+  blueLimitText: {
+    color: colors.secondary,
+  },
   floatingAddButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
@@ -518,6 +588,93 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
   },
+  limitDetailContainer: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 34,
+    borderTopRightRadius: 34,
+    paddingBottom: 42,
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    width: '100%',
+  },
+  limitDetailContent: {
+    gap: 24,
+  },
+  limitDetailEdit: {
+    color: colors.slate400,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  limitDetailHandle: {
+    alignSelf: 'center',
+    backgroundColor: '#DDE3EC',
+    borderRadius: 4,
+    height: 8,
+    marginBottom: 24,
+    width: 56,
+  },
+  limitDetailHeader: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  limitDetailIcon: {
+    fontSize: 24,
+    fontWeight: '800',
+    width: 30,
+  },
+  limitDetailItem: {
+    gap: 10,
+  },
+  limitDetailItemHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  limitDetailItemLeft: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  limitDetailItemRight: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  limitDetailLabel: {
+    color: colors.slate600,
+    fontFamily: typography.fontFamily,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  limitDetailPercent: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  limitDetailProgress: {
+    borderRadius: 5,
+    height: '100%',
+  },
+  limitDetailSubtitle: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  limitDetailTitle: {
+    color: colors.slate900,
+    fontFamily: typography.fontFamily,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  limitDetailTrack: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 5,
+    height: 10,
+    overflow: 'hidden',
+  },
   limitHeader: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -573,6 +730,12 @@ const styles = StyleSheet.create({
   primaryWalletAmount: {
     color: colors.primary,
   },
+  primaryLimitProgress: {
+    backgroundColor: colors.primary,
+  },
+  primaryLimitText: {
+    color: colors.primary,
+  },
   primaryWalletIcon: {
     backgroundColor: colors.primary,
   },
@@ -582,6 +745,12 @@ const styles = StyleSheet.create({
   },
   purpleWalletAmount: {
     color: '#9333EA',
+  },
+  purpleLimitProgress: {
+    backgroundColor: '#A855F7',
+  },
+  purpleLimitText: {
+    color: '#A855F7',
   },
   purpleWalletIcon: {
     backgroundColor: '#A855F7',
@@ -816,6 +985,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   yellowWalletAmount: {
+    color: '#CA8A04',
+  },
+  yellowLimitProgress: {
+    backgroundColor: colors.tertiary,
+  },
+  yellowLimitText: {
     color: '#CA8A04',
   },
   yellowWalletIcon: {

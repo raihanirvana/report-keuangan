@@ -7,7 +7,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import { DashboardScreen, LoginScreen, SplashScreen } from '../../Screens';
-import { getAuthToken } from '../../Utils/authStorage';
+import { clearAuthToken, getAuthToken } from '../../Utils/authStorage';
 
 import styles from './App.styles';
 
@@ -23,6 +23,7 @@ type AppContentProps = {
   isLoggedIn: boolean;
   isSplashVisible: boolean;
   onLogin: () => void;
+  onLogout: () => void;
 };
 
 function AppContent(props: AppContentProps) {
@@ -34,7 +35,7 @@ function AppContent(props: AppContentProps) {
     return <LoginScreen onLogin={props.onLogin} />;
   }
 
-  return <DashboardScreen />;
+  return <DashboardScreen onLogout={props.onLogout} />;
 }
 
 function updateAuthState(
@@ -80,6 +81,10 @@ function App() {
     auth.isSplashVisible,
     auth.isLoggedIn,
   );
+  const handleLogout = async () => {
+    await clearAuthToken();
+    auth.setLoggedIn(false);
+  };
 
   return (
     <SafeAreaProvider>
@@ -89,6 +94,7 @@ function App() {
           isLoggedIn={auth.isLoggedIn}
           isSplashVisible={auth.isSplashVisible}
           onLogin={() => auth.setLoggedIn(true)}
+          onLogout={handleLogout}
         />
       </SafeAreaView>
     </SafeAreaProvider>

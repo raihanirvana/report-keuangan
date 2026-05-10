@@ -21,7 +21,53 @@ import {
 } from './DashboardScreen.data';
 import styles from './DashboardScreen.styles';
 
-function Header() {
+const limitDetails = [
+  {
+    icon: '≋',
+    label: 'Internet/Kuota',
+    progress: '75%',
+    tone: 'blue',
+    width: '75%',
+  },
+  {
+    icon: '⌂',
+    label: 'Kos/Rent',
+    progress: 'Lunas!',
+    tone: 'primary',
+    width: '100%',
+  },
+  {
+    icon: '☰',
+    label: 'Food',
+    progress: '60%',
+    tone: 'yellow',
+    width: '60%',
+  },
+  {
+    icon: '☻',
+    label: 'Skincare',
+    progress: '80%',
+    tone: 'purple',
+    width: '80%',
+  },
+] as const;
+
+type DashboardSheetsProps = {
+  isFullHistoryVisible: boolean;
+  isAddSheetVisible: boolean;
+  isLimitDetailVisible: boolean;
+  isWalletSheetVisible: boolean;
+  onCloseAddSheet: () => void;
+  onCloseFullHistory: () => void;
+  onCloseLimitDetail: () => void;
+  onCloseWalletSheet: () => void;
+};
+type DashboardScreenProps = {
+  onLogout?: () => void;
+};
+type LimitDetail = (typeof limitDetails)[number];
+
+function Header({ onLogout }: DashboardScreenProps) {
   return (
     <View style={styles.header}>
       <View style={styles.headerIntro}>
@@ -33,9 +79,13 @@ function Header() {
           <Text style={styles.name}>Caca Cute ✨</Text>
         </View>
       </View>
-      <Pressable style={styles.iconButton}>
-        <Text style={styles.iconButtonText}>●</Text>
-        <View style={styles.iconButtonDot} />
+      <Pressable
+        accessibilityLabel="Logout"
+        onPress={onLogout}
+        style={styles.logoutButton}
+      >
+        <Text style={styles.logoutIcon}>↪</Text>
+        <Text style={styles.logoutText}>Keluar</Text>
       </Pressable>
     </View>
   );
@@ -139,10 +189,10 @@ function UsageSection() {
   );
 }
 
-function SpendingLimitSection() {
+function SpendingLimitSection(props: { onOpenLimitDetail: () => void }) {
   return (
     <View style={styles.limitSection}>
-      <View style={styles.limitCard}>
+      <Pressable onPress={props.onOpenLimitDetail} style={styles.limitCard}>
         <View style={styles.limitHeader}>
           <View style={styles.limitTitleRow}>
             <Text style={styles.limitIcon}>◎</Text>
@@ -158,7 +208,7 @@ function SpendingLimitSection() {
           <View style={styles.limitProgress} />
         </View>
         <SpendingLimitAmount />
-      </View>
+      </Pressable>
     </View>
   );
 }
@@ -395,6 +445,15 @@ function WalletGrid() {
   );
 }
 
+function AddWalletButton() {
+  return (
+    <Pressable style={styles.addWalletButton}>
+      <Text style={styles.addWalletIcon}>⊕</Text>
+      <Text style={styles.addWalletText}>Tambah Dompet / ATM</Text>
+    </Pressable>
+  );
+}
+
 function SheetHeader(props: {
   dragHandleProps: BottomSheetDragHandleProps;
   onClose: () => void;
@@ -428,6 +487,7 @@ function SheetContent(props: {
       />
       <TotalWalletOption />
       <WalletGrid />
+      <AddWalletButton />
       <Pressable style={styles.confirmButton}>
         <Text style={styles.confirmButtonText}>Konfirmasi Pilihan</Text>
       </Pressable>
@@ -452,6 +512,101 @@ function WalletBottomSheet(props: { onClose: () => void; visible: boolean }) {
   );
 }
 
+function getLimitDetailStyles(tone: (typeof limitDetails)[number]['tone']) {
+  return {
+    progress: styles[`${tone}LimitProgress`],
+    text: styles[`${tone}LimitText`],
+  };
+}
+
+function LimitDetailHeader(props: {
+  dragHandleProps: BottomSheetDragHandleProps;
+}) {
+  return (
+    <View style={styles.limitDetailHeader} {...props.dragHandleProps}>
+      <View style={styles.limitDetailHandle} />
+      <Text style={styles.limitDetailTitle}>Detail Limit 📊</Text>
+      <Text style={styles.limitDetailSubtitle}>SEMANGAT HEMAT YA, KAK! ✨</Text>
+    </View>
+  );
+}
+
+function LimitDetailItemHeader(props: { item: LimitDetail }) {
+  const toneStyles = getLimitDetailStyles(props.item.tone);
+
+  return (
+    <View style={styles.limitDetailItemHeader}>
+      <View style={styles.limitDetailItemLeft}>
+        <Text style={[styles.limitDetailIcon, toneStyles.text]}>
+          {props.item.icon}
+        </Text>
+        <Text style={styles.limitDetailLabel}>{props.item.label}</Text>
+      </View>
+      <View style={styles.limitDetailItemRight}>
+        <Text style={[styles.limitDetailPercent, toneStyles.text]}>
+          {props.item.progress}
+        </Text>
+        <Text style={styles.limitDetailEdit}>⌕</Text>
+      </View>
+    </View>
+  );
+}
+
+function LimitDetailProgress({ item }: { item: LimitDetail }) {
+  const toneStyles = getLimitDetailStyles(item.tone);
+
+  return (
+    <View style={styles.limitDetailTrack}>
+      <View
+        style={[
+          styles.limitDetailProgress,
+          toneStyles.progress,
+          { width: item.width },
+        ]}
+      />
+    </View>
+  );
+}
+
+function LimitDetailItem(props: { item: LimitDetail }) {
+  return (
+    <View style={styles.limitDetailItem}>
+      <LimitDetailItemHeader item={props.item} />
+      <LimitDetailProgress item={props.item} />
+    </View>
+  );
+}
+
+function LimitDetailContent() {
+  return (
+    <View style={styles.limitDetailContent}>
+      {limitDetails.map(item => (
+        <LimitDetailItem item={item} key={item.label} />
+      ))}
+      <Pressable style={styles.addLimitCategoryButton}>
+        <Text style={styles.addLimitCategoryText}>⊕ Tambah Kategori Baru</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function LimitDetailBottomSheet(props: { onClose: () => void; visible: boolean }) {
+  return (
+    <BottomSheet
+      containerStyle={styles.limitDetailContainer}
+      onClose={props.onClose}
+      visible={props.visible}
+    >
+      {({ dragHandleProps }) => (
+        <>
+          <LimitDetailHeader dragHandleProps={dragHandleProps} />
+          <LimitDetailContent />
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
 function FloatingAddButton(props: { onPress: () => void }) {
   return (
     <Pressable onPress={props.onPress} style={styles.floatingAddButton}>
@@ -460,16 +615,22 @@ function FloatingAddButton(props: { onPress: () => void }) {
   );
 }
 
-function DashboardSheets(props: {
-  isFullHistoryVisible: boolean;
-  isAddSheetVisible: boolean;
-  isWalletSheetVisible: boolean;
-  onCloseAddSheet: () => void;
-  onCloseFullHistory: () => void;
-  onCloseWalletSheet: () => void;
-}) {
+function AddSheetOverlay(props: DashboardSheetsProps) {
+  return (
+    <AddTransactionSheet
+      onClose={props.onCloseAddSheet}
+      visible={props.isAddSheetVisible}
+    />
+  );
+}
+
+function DashboardSheets(props: DashboardSheetsProps) {
   return (
     <>
+      <LimitDetailBottomSheet
+        onClose={props.onCloseLimitDetail}
+        visible={props.isLimitDetailVisible}
+      />
       <FullHistoryBottomSheet
         onClose={props.onCloseFullHistory}
         visible={props.isFullHistoryVisible}
@@ -478,50 +639,64 @@ function DashboardSheets(props: {
         onClose={props.onCloseWalletSheet}
         visible={props.isWalletSheetVisible}
       />
-      <AddTransactionSheet
-        onClose={props.onCloseAddSheet}
-        visible={props.isAddSheetVisible}
-      />
+      <AddSheetOverlay {...props} />
     </>
   );
 }
 
 function DashboardContent(props: {
   onOpenFullHistory: () => void;
+  onOpenLimitDetail: () => void;
   onOpenWalletSheet: () => void;
+  onLogout?: () => void;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.pageContent}>
-      <Header />
+      <Header onLogout={props.onLogout} />
       <BalanceCard onOpenWalletSheet={props.onOpenWalletSheet} />
       <SummaryCards />
       <UsageSection />
-      <SpendingLimitSection />
+      <SpendingLimitSection onOpenLimitDetail={props.onOpenLimitDetail} />
       <HistorySection onOpenFullHistory={props.onOpenFullHistory} />
     </ScrollView>
   );
 }
 
-function DashboardScreen() {
+function useDashboardSheetState() {
   const [isAddSheetVisible, setAddSheetVisible] = useState(false);
   const [isFullHistoryVisible, setFullHistoryVisible] = useState(false);
+  const [isLimitDetailVisible, setLimitDetailVisible] = useState(false);
   const [isWalletSheetVisible, setWalletSheetVisible] = useState(false);
+
+  return {
+    isAddSheetVisible,
+    isFullHistoryVisible,
+    isLimitDetailVisible,
+    isWalletSheetVisible,
+    onCloseAddSheet: () => setAddSheetVisible(false),
+    onCloseFullHistory: () => setFullHistoryVisible(false),
+    onCloseLimitDetail: () => setLimitDetailVisible(false),
+    onCloseWalletSheet: () => setWalletSheetVisible(false),
+    onOpenAddSheet: () => setAddSheetVisible(true),
+    onOpenFullHistory: () => setFullHistoryVisible(true),
+    onOpenLimitDetail: () => setLimitDetailVisible(true),
+    onOpenWalletSheet: () => setWalletSheetVisible(true),
+  };
+}
+
+function DashboardScreen({ onLogout }: DashboardScreenProps) {
+  const sheets = useDashboardSheetState();
 
   return (
     <View style={styles.container}>
       <DashboardContent
-        onOpenFullHistory={() => setFullHistoryVisible(true)}
-        onOpenWalletSheet={() => setWalletSheetVisible(true)}
+        onOpenFullHistory={sheets.onOpenFullHistory}
+        onOpenLimitDetail={sheets.onOpenLimitDetail}
+        onOpenWalletSheet={sheets.onOpenWalletSheet}
+        onLogout={onLogout}
       />
-      <FloatingAddButton onPress={() => setAddSheetVisible(true)} />
-      <DashboardSheets
-        isAddSheetVisible={isAddSheetVisible}
-        isFullHistoryVisible={isFullHistoryVisible}
-        isWalletSheetVisible={isWalletSheetVisible}
-        onCloseAddSheet={() => setAddSheetVisible(false)}
-        onCloseFullHistory={() => setFullHistoryVisible(false)}
-        onCloseWalletSheet={() => setWalletSheetVisible(false)}
-      />
+      <FloatingAddButton onPress={sheets.onOpenAddSheet} />
+      <DashboardSheets {...sheets} />
     </View>
   );
 }
