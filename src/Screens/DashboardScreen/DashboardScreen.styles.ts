@@ -257,6 +257,33 @@ const styles = StyleSheet.create({
   historyAmountIncome: {
     color: colors.secondary,
   },
+  historyAmountTransfer: {
+    color: colors.slate600,
+  },
+  historyEmptyState: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderColor: 'rgba(238, 43, 108, 0.05)',
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+  },
+  historyEmptyText: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  historyEmptyTitle: {
+    color: colors.slate900,
+    fontFamily: typography.fontFamily,
+    fontSize: 16,
+    fontWeight: '800',
+  },
   historyIcon: {
     fontSize: 22,
   },
@@ -383,6 +410,9 @@ const styles = StyleSheet.create({
   },
   fullHistoryAmountIncome: {
     color: colors.accentPurple,
+  },
+  fullHistoryAmountTransfer: {
+    color: colors.slate600,
   },
   fullHistoryChip: {
     backgroundColor: colors.white,

@@ -29,6 +29,7 @@ import {
   deleteWallet,
   getBudgets,
   getDashboardSummary,
+  getTransactions,
   getWallets,
   type AuthUser,
   type BudgetItem,
@@ -37,6 +38,8 @@ import {
   type CreateBudgetPayload,
   type CreateWalletPayload,
   type DashboardSummary,
+  type Transaction,
+  type TransactionType,
   type Wallet,
 } from '../../Services';
 import { colors } from '../../Theme';
@@ -44,8 +47,6 @@ import { getAuthToken } from '../../Utils/authStorage';
 
 import {
   categories,
-  fullHistoryGroups,
-  histories,
 } from './DashboardScreen.data';
 import styles from './DashboardScreen.styles';
 
@@ -91,10 +92,12 @@ type DashboardSheetsProps = {
   onSelectHistoryFilter: (filter: HistoryFilter) => void;
   selectedHistoryFilter: HistoryFilter;
   totalWalletAmount: string;
+  usagePeriodLabel: string;
 };
 type DashboardContentProps = {
   dashboardSummary: DashboardSummary | null;
   filterLabel: string;
+  historyItems: HistoryItemData[];
   isRefreshing: boolean;
   onOpenFullHistory: (filter?: HistoryFilter) => void;
   onOpenLimitDetail: () => void;
@@ -125,6 +128,21 @@ type DashboardScreenShellProps = {
 };
 type LimitSheetView = 'create' | 'list';
 type HistoryFilter = 'Pemasukan' | 'Pengeluaran' | 'Pindah Dana' | 'Semua';
+type HistoryTone = 'expense' | 'income' | 'transfer';
+type HistoryItemData = {
+  amount: string;
+  icon: string;
+  id: string;
+  meta: string;
+  occurredAt: string;
+  title: string;
+  tone: HistoryTone;
+};
+type FullHistoryGroupData = {
+  id: string;
+  title: string;
+  transactions: HistoryItemData[];
+};
 type WalletType = (typeof walletTypes)[number];
 type WalletItem = {
   amount: string;
@@ -137,6 +155,7 @@ type WalletSheetView = 'create' | 'list';
 type DashboardDataSetters = {
   setDashboardSummary: (summary: DashboardSummary | null) => void;
   setErrorMessage: (message: string) => void;
+  setHistoryItems: (items: HistoryItemData[]) => void;
   setRefreshing: (value: boolean) => void;
 };
 type DashboardPeriod = {
@@ -148,6 +167,14 @@ type LimitDetailSheetContentProps = {
   month: string;
   onChanged: () => void;
   onClose: () => void;
+  visible: boolean;
+};
+type FullHistoryBottomSheetProps = {
+  month: string;
+  monthLabel: string;
+  onClose: () => void;
+  onSelectFilter: (filter: HistoryFilter) => void;
+  selectedFilter: HistoryFilter;
   visible: boolean;
 };
 type LimitDetailListViewProps = {
@@ -431,7 +458,10 @@ function formatRupiah(value: number) {
   return `Rp ${value.toLocaleString('id-ID')}`;
 }
 
-function HistorySection(props: { onOpenFullHistory: () => void }) {
+function HistorySection(props: {
+  histories: HistoryItemData[];
+  onOpenFullHistory: () => void;
+}) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -440,17 +470,39 @@ function HistorySection(props: { onOpenFullHistory: () => void }) {
           <Text style={styles.sectionLink}>Lihat Semua</Text>
         </Pressable>
       </View>
-      <View style={styles.historyList}>
-        {histories.map(history => (
-          <HistoryItem history={history} key={history.title} />
-        ))}
-      </View>
+      <HistoryList histories={props.histories} />
+    </View>
+  );
+}
+
+function HistoryList(props: { histories: HistoryItemData[] }) {
+  if (!props.histories.length) {
+    return <HistoryEmptyState />;
+  }
+
+  return (
+    <View style={styles.historyList}>
+      {props.histories.map(history => (
+        <HistoryItem history={history} key={history.id} />
+      ))}
+    </View>
+  );
+}
+
+function HistoryEmptyState() {
+  return (
+    <View style={styles.historyEmptyState}>
+      <Text style={styles.historyEmptyTitle}>Belum ada histori</Text>
+      <Text style={styles.historyEmptyText}>
+        Transaksi yang kamu catat nanti muncul di sini.
+      </Text>
     </View>
   );
 }
 
 function FullHistoryTitleRow(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  monthLabel: string;
 }) {
   return (
     <View style={styles.fullHistoryTitleRow}>
@@ -460,7 +512,7 @@ function FullHistoryTitleRow(props: {
         </View>
         <Text style={styles.fullHistoryTitle}>Histori Lengkap</Text>
       </View>
-      <Text style={styles.fullHistoryMonth}>Mei 2024⌄</Text>
+      <Text style={styles.fullHistoryMonth}>{props.monthLabel}⌄</Text>
     </View>
   );
 }
@@ -477,13 +529,17 @@ function FullHistoryHandle(props: {
 
 function FullHistoryHeader(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  monthLabel: string;
   onSelectFilter: (filter: HistoryFilter) => void;
   selectedFilter: HistoryFilter;
 }) {
   return (
     <View style={styles.fullHistoryHeader}>
       <FullHistoryHandle dragHandleProps={props.dragHandleProps} />
-      <FullHistoryTitleRow dragHandleProps={props.dragHandleProps} />
+      <FullHistoryTitleRow
+        dragHandleProps={props.dragHandleProps}
+        monthLabel={props.monthLabel}
+      />
       <HistoryFilterChips
         onSelectFilter={props.onSelectFilter}
         selectedFilter={props.selectedFilter}
@@ -539,11 +595,8 @@ function HistoryFilterChip(props: {
   );
 }
 
-function HistoryItem({ history }: { history: (typeof histories)[number] }) {
-  const amountStyle =
-    history.tone === 'income'
-      ? styles.historyAmountIncome
-      : styles.historyAmountExpense;
+function HistoryItem({ history }: { history: HistoryItemData }) {
+  const amountStyle = getHistoryAmountStyle(history.tone);
 
   return (
     <View style={styles.historyItem}>
@@ -561,13 +614,28 @@ function HistoryItem({ history }: { history: (typeof histories)[number] }) {
   );
 }
 
-function FullHistoryTransaction(props: {
-  transaction: (typeof fullHistoryGroups)[number]['transactions'][number];
-}) {
-  const amountStyle =
-    props.transaction.tone === 'income'
-      ? styles.fullHistoryAmountIncome
-      : styles.fullHistoryAmountExpense;
+function getHistoryAmountStyle(tone: HistoryTone) {
+  if (tone === 'income') {
+    return styles.historyAmountIncome;
+  }
+
+  return tone === 'transfer'
+    ? styles.historyAmountTransfer
+    : styles.historyAmountExpense;
+}
+
+function getFullHistoryAmountStyle(tone: HistoryTone) {
+  if (tone === 'income') {
+    return styles.fullHistoryAmountIncome;
+  }
+
+  return tone === 'transfer'
+    ? styles.fullHistoryAmountTransfer
+    : styles.fullHistoryAmountExpense;
+}
+
+function FullHistoryTransaction(props: { transaction: HistoryItemData }) {
+  const amountStyle = getFullHistoryAmountStyle(props.transaction.tone);
 
   return (
     <View style={styles.fullHistoryItem}>
@@ -584,9 +652,7 @@ function FullHistoryTransaction(props: {
   );
 }
 
-function FullHistoryTransactionCopy(props: {
-  transaction: (typeof fullHistoryGroups)[number]['transactions'][number];
-}) {
+function FullHistoryTransactionCopy(props: { transaction: HistoryItemData }) {
   return (
     <View style={styles.fullHistoryItemCopy}>
       <Text numberOfLines={1} style={styles.fullHistoryItemTitle}>
@@ -598,7 +664,7 @@ function FullHistoryTransactionCopy(props: {
 }
 
 function getFilteredTransactions(
-  group: (typeof fullHistoryGroups)[number],
+  group: FullHistoryGroupData,
   selectedFilter: HistoryFilter,
 ) {
   return group.transactions.filter(transaction => {
@@ -610,12 +676,16 @@ function getFilteredTransactions(
       return transaction.tone === 'income';
     }
 
+    if (selectedFilter === 'Pindah Dana') {
+      return transaction.tone === 'transfer';
+    }
+
     return selectedFilter === 'Pengeluaran' && transaction.tone === 'expense';
   });
 }
 
 function FullHistoryGroup(props: {
-  group: (typeof fullHistoryGroups)[number];
+  group: FullHistoryGroupData;
   selectedFilter: HistoryFilter;
 }) {
   const transactions = getFilteredTransactions(props.group, props.selectedFilter);
@@ -630,7 +700,7 @@ function FullHistoryGroup(props: {
       <View style={styles.fullHistoryList}>
         {transactions.map(transaction => (
           <FullHistoryTransaction
-            key={transaction.title}
+            key={transaction.id}
             transaction={transaction}
           />
         ))}
@@ -639,8 +709,11 @@ function FullHistoryGroup(props: {
   );
 }
 
-function hasVisibleHistory(selectedFilter: HistoryFilter) {
-  return fullHistoryGroups.some(group => (
+function hasVisibleHistory(
+  groups: FullHistoryGroupData[],
+  selectedFilter: HistoryFilter,
+) {
+  return groups.some(group => (
     getFilteredTransactions(group, selectedFilter).length > 0
   ));
 }
@@ -656,12 +729,15 @@ function FullHistoryEmptyState() {
   );
 }
 
-function FullHistoryContent(props: { selectedFilter: HistoryFilter }) {
-  const hasData = hasVisibleHistory(props.selectedFilter);
+function FullHistoryContent(props: {
+  groups: FullHistoryGroupData[];
+  selectedFilter: HistoryFilter;
+}) {
+  const hasData = hasVisibleHistory(props.groups, props.selectedFilter);
 
   return (
     <ScrollView contentContainerStyle={styles.fullHistoryContent}>
-      {hasData ? fullHistoryGroups.map(group => (
+      {hasData ? props.groups.map(group => (
         <FullHistoryGroup
           group={group}
           key={group.id}
@@ -672,12 +748,10 @@ function FullHistoryContent(props: { selectedFilter: HistoryFilter }) {
   );
 }
 
-function FullHistoryBottomSheet(props: {
-  onClose: () => void;
-  onSelectFilter: (filter: HistoryFilter) => void;
-  selectedFilter: HistoryFilter;
-  visible: boolean;
-}) {
+function FullHistoryBottomSheet(props: FullHistoryBottomSheetProps) {
+  const groups = useFullHistoryGroups(props);
+  const sheetProps = { ...props, groups };
+
   return (
     <BottomSheet
       containerStyle={styles.fullHistoryContainer}
@@ -685,17 +759,54 @@ function FullHistoryBottomSheet(props: {
       visible={props.visible}
     >
       {({ dragHandleProps }) => (
-        <>
-          <FullHistoryHeader
-            dragHandleProps={dragHandleProps}
-            onSelectFilter={props.onSelectFilter}
-            selectedFilter={props.selectedFilter}
-          />
-          <FullHistoryContent selectedFilter={props.selectedFilter} />
-        </>
+        <FullHistorySheetContent
+          dragHandleProps={dragHandleProps}
+          {...sheetProps}
+        />
       )}
     </BottomSheet>
   );
+}
+
+function FullHistorySheetContent(props: {
+  dragHandleProps: BottomSheetDragHandleProps;
+  groups: FullHistoryGroupData[];
+  monthLabel: string;
+  onSelectFilter: (filter: HistoryFilter) => void;
+  selectedFilter: HistoryFilter;
+}) {
+  return (
+    <>
+      <FullHistoryHeader
+        dragHandleProps={props.dragHandleProps}
+        monthLabel={props.monthLabel}
+        onSelectFilter={props.onSelectFilter}
+        selectedFilter={props.selectedFilter}
+      />
+      <FullHistoryContent
+        groups={props.groups}
+        selectedFilter={props.selectedFilter}
+      />
+    </>
+  );
+}
+
+function useFullHistoryGroups(props: {
+  month: string;
+  selectedFilter: HistoryFilter;
+  visible: boolean;
+}) {
+  const [groups, setGroups] = useState<FullHistoryGroupData[]>([]);
+
+  useEffect(() => {
+    if (props.visible) {
+      fetchFullHistoryGroups(props.month, props.selectedFilter)
+        .then(setGroups)
+        .catch(() => setGroups([]));
+    }
+  }, [props.month, props.selectedFilter, props.visible]);
+
+  return groups;
 }
 
 function TotalWalletOption(props: { amount: string }) {
@@ -2205,7 +2316,18 @@ function DashboardSheets(props: DashboardSheetsProps) {
         onClose={props.onCloseLimitDetail}
         visible={props.isLimitDetailVisible}
       />
+      <HistoryAndWalletSheets {...props} />
+      <AddSheetOverlay {...props} />
+    </>
+  );
+}
+
+function HistoryAndWalletSheets(props: DashboardSheetsProps) {
+  return (
+    <>
       <FullHistoryBottomSheet
+        month={props.apiMonth}
+        monthLabel={props.usagePeriodLabel}
         onClose={props.onCloseFullHistory}
         onSelectFilter={props.onSelectHistoryFilter}
         selectedFilter={props.selectedHistoryFilter}
@@ -2217,7 +2339,6 @@ function DashboardSheets(props: DashboardSheetsProps) {
         totalAmount={props.totalWalletAmount}
         visible={props.isWalletSheetVisible}
       />
-      <AddSheetOverlay {...props} />
     </>
   );
 }
@@ -2270,7 +2391,10 @@ function DashboardBodySections(props: DashboardContentProps) {
         dashboardSummary={props.dashboardSummary}
         onOpenLimitDetail={props.onOpenLimitDetail}
       />
-      <HistorySection onOpenFullHistory={props.onOpenFullHistory} />
+      <HistorySection
+        histories={props.historyItems}
+        onOpenFullHistory={props.onOpenFullHistory}
+      />
     </>
   );
 }
@@ -2452,6 +2576,137 @@ async function fetchDashboardSummary(month: string) {
   return response.data;
 }
 
+async function fetchRecentHistoryItems(month: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return [];
+  }
+
+  const response = await getTransactions(token, { limit: 4, month, page: 1 });
+
+  return response.data.map(mapTransactionToHistoryItem);
+}
+
+async function fetchFullHistoryGroups(
+  month: string,
+  filter: HistoryFilter,
+) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return [];
+  }
+
+  const response = await getTransactions(token, getHistoryQuery(month, filter));
+
+  return groupHistoryItems(response.data.map(mapTransactionToHistoryItem));
+}
+
+function getHistoryQuery(month: string, filter: HistoryFilter) {
+  return {
+    limit: 50,
+    month,
+    page: 1,
+    type: getTransactionTypeFilter(filter),
+  };
+}
+
+function getTransactionTypeFilter(filter: HistoryFilter) {
+  const filters: Partial<Record<HistoryFilter, TransactionType>> = {
+    Pemasukan: 'INCOME',
+    Pengeluaran: 'EXPENSE',
+    'Pindah Dana': 'TRANSFER',
+  };
+
+  return filters[filter];
+}
+
+function mapTransactionToHistoryItem(transaction: Transaction): HistoryItemData {
+  return {
+    amount: transaction.formattedAmount || formatTransactionAmount(transaction),
+    icon: getTransactionIcon(transaction),
+    id: transaction.id,
+    meta: getTransactionMeta(transaction),
+    occurredAt: transaction.occurredAt,
+    title: transaction.title,
+    tone: getTransactionTone(transaction.type),
+  };
+}
+
+function getTransactionTone(type: TransactionType): HistoryTone {
+  if (type === 'INCOME') {
+    return 'income';
+  }
+
+  return type === 'TRANSFER' ? 'transfer' : 'expense';
+}
+
+function getTransactionIcon(transaction: Transaction) {
+  if (transaction.type === 'TRANSFER') {
+    return '↔';
+  }
+
+  return getBudgetDisplayIcon(transaction.category?.icon ?? '');
+}
+
+function formatTransactionAmount(transaction: Transaction) {
+  const prefix = transaction.type === 'INCOME' ? '+ ' : '- ';
+
+  return `${prefix}${formatRupiah(transaction.amount)}`;
+}
+
+function getTransactionMeta(transaction: Transaction) {
+  return `${getTransactionWalletLabel(transaction)} • ${getTransactionTime(transaction)}`;
+}
+
+function getTransactionWalletLabel(transaction: Transaction) {
+  if (transaction.type === 'TRANSFER') {
+    return `${transaction.fromWallet?.name ?? '-'} → ${transaction.toWallet?.name ?? '-'}`;
+  }
+
+  return `Via ${transaction.wallet?.name ?? '-'}`;
+}
+
+function getTransactionTime(transaction: Transaction) {
+  return new Date(transaction.occurredAt).toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function groupHistoryItems(items: HistoryItemData[]) {
+  return items.reduce<FullHistoryGroupData[]>((groups, item) => (
+    upsertHistoryGroup(groups, getHistoryGroupTitle(item.occurredAt), item)
+  ), []);
+}
+
+function upsertHistoryGroup(
+  groups: FullHistoryGroupData[],
+  title: string,
+  item: HistoryItemData,
+) {
+  const group = groups.find(value => value.title === title);
+
+  if (group) {
+    group.transactions.push(item);
+
+    return groups;
+  }
+
+  return [...groups, { id: title, title, transactions: [item] }];
+}
+
+function getHistoryGroupTitle(occurredAt: string) {
+  const date = new Date(occurredAt);
+
+  return date.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 function getWalletTone(wallet: Wallet): WalletTone {
   if (wallet.type === 'EWALLET') {
     return 'primary';
@@ -2525,11 +2780,13 @@ function useDashboardData(month: string) {
   const [dashboardSummary, setDashboardSummary] =
     useState<DashboardSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [historyItems, setHistoryItems] = useState<HistoryItemData[]>([]);
   const [isRefreshing, setRefreshing] = useState(false);
   const refreshDashboard = () => (
     loadDashboardData(month, {
       setDashboardSummary,
       setErrorMessage,
+      setHistoryItems,
       setRefreshing,
     })
   );
@@ -2538,6 +2795,7 @@ function useDashboardData(month: string) {
   return {
     dashboardSummary,
     errorMessage,
+    historyItems,
     isRefreshing,
     refreshDashboard,
   };
@@ -2556,8 +2814,9 @@ async function loadDashboardData(month: string, setters: DashboardDataSetters) {
   setters.setRefreshing(true);
 
   try {
-    const summary = await fetchDashboardSummary(month);
+    const [summary, historyItems] = await fetchDashboardHomeData(month);
     setters.setDashboardSummary(summary);
+    setters.setHistoryItems(historyItems);
     setters.setErrorMessage('');
   } catch (error) {
     if (isSessionExpiredError(error)) {
@@ -2569,6 +2828,15 @@ async function loadDashboardData(month: string, setters: DashboardDataSetters) {
   } finally {
     setters.setRefreshing(false);
   }
+}
+
+async function fetchDashboardHomeData(month: string) {
+  const [summary, historyItems] = await Promise.all([
+    fetchDashboardSummary(month),
+    fetchRecentHistoryItems(month).catch(() => []),
+  ]);
+
+  return [summary, historyItems] as const;
 }
 
 function isSessionExpiredError(error: unknown) {
@@ -2591,6 +2859,7 @@ function DashboardMainContent(props: DashboardMainContentProps) {
       <DashboardContent
         dashboardSummary={props.dashboardData.dashboardSummary}
         filterLabel={props.filterLabel}
+        historyItems={props.dashboardData.historyItems}
         isRefreshing={props.dashboardData.isRefreshing}
         onOpenFullHistory={props.sheets.onOpenFullHistory}
         onOpenLimitDetail={props.sheets.onOpenLimitDetail}
@@ -2652,6 +2921,7 @@ function DashboardSuccessShell(props: DashboardScreenShellProps) {
         apiMonth={props.periodFilter.apiMonth}
         onDashboardChanged={props.dashboardData.refreshDashboard}
         totalWalletAmount={getDashboardTotalAmount(props.dashboardData)}
+        usagePeriodLabel={props.periodFilter.label}
       />
       <UsagePeriodOverlay period={props.period} sheets={props.sheets} />
     </View>
