@@ -1,6 +1,10 @@
 import { apiRequest } from '../Api/apiClient';
 
-import type { Transaction, TransactionsQuery } from './transactions.types';
+import type {
+  CreateTransactionPayload,
+  Transaction,
+  TransactionsQuery,
+} from './transactions.types';
 
 function getTransactions(token: string, query: TransactionsQuery = {}) {
   return apiRequest<Transaction[]>(getTransactionsPath(query), {
@@ -23,4 +27,15 @@ function getTransactionsPath(query: TransactionsQuery) {
   return queryString ? `/transactions?${queryString}` : '/transactions';
 }
 
-export { getTransactions };
+function createTransaction(token: string, payload: CreateTransactionPayload) {
+  return apiRequest<Transaction>('/transactions', {
+    body: payload,
+    method: 'POST',
+    token,
+  });
+}
+
+export {
+  createTransaction,
+  getTransactions,
+};

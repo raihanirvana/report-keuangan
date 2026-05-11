@@ -7,6 +7,7 @@ type BudgetSummary = {
 type BudgetItem = {
   categoryId: string;
   color: string;
+  documentId: string;
   icon: string;
   id: string;
   limitAmount: number;
@@ -22,7 +23,9 @@ type BudgetPreviousMonth = {
 };
 
 type BudgetsResponse = {
+  documentId: string | null;
   items: BudgetItem[];
+  month: string;
   previousMonth?: BudgetPreviousMonth;
   summary: BudgetSummary;
 };
@@ -33,15 +36,9 @@ type CopyPreviousBudgetPayload = {
 };
 
 type CreateBudgetPayload = {
-  category: {
-    color: string;
-    icon: string;
-    name: string;
-  };
-  endsAt: string;
+  categoryId: string;
   limitAmount: number;
-  period: 'MONTHLY';
-  startsAt: string;
+  month: string;
 };
 
 export type {

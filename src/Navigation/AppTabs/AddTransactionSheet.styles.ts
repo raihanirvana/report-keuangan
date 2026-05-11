@@ -33,6 +33,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  backButton: {
+    alignItems: 'center',
+    backgroundColor: colors.backgroundLight,
+    borderRadius: 24,
+    height: 48,
+    justifyContent: 'center',
+    marginRight: 12,
+    width: 48,
+  },
+  backText: {
+    color: colors.slate600,
+    fontSize: 34,
+    lineHeight: 34,
+  },
   categoryCircle: {
     alignItems: 'center',
     backgroundColor: colors.backgroundLight,
@@ -81,6 +95,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingVertical: 4,
   },
+  choiceChip: {
+    backgroundColor: 'rgba(255, 204, 213, 0.14)',
+    borderColor: 'rgba(255, 204, 213, 0.32)',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  choiceChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  choiceText: {
+    color: colors.slate600,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  choiceTextActive: {
+    color: colors.white,
+  },
   closeButton: {
     alignItems: 'center',
     backgroundColor: colors.backgroundLight,
@@ -106,6 +146,28 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 116,
     paddingHorizontal: 24,
+  },
+  confirmationCard: {
+    backgroundColor: 'rgba(255, 245, 247, 0.52)',
+    borderColor: 'rgba(255, 204, 213, 0.34)',
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 18,
+    padding: 22,
+  },
+  confirmationEyebrow: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  confirmationTitle: {
+    color: colors.slate900,
+    fontFamily: typography.fontFamily,
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 8,
   },
   field: {
     flex: 1,
@@ -204,6 +266,18 @@ const styles = StyleSheet.create({
   notesSection: {
     marginTop: 24,
   },
+  errorText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  pickerSection: {
+    gap: 12,
+    marginBottom: 22,
+  },
   saveButton: {
     alignItems: 'center',
     backgroundColor: colors.slate900,
@@ -218,6 +292,21 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontFamily: typography.fontFamily,
     fontSize: 16,
+    fontWeight: '800',
+  },
+  secondaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.backgroundLight,
+    borderColor: 'rgba(255, 204, 213, 0.28)',
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingVertical: 14,
+  },
+  secondaryButtonText: {
+    color: colors.slate600,
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
     fontWeight: '800',
   },
   sectionHeader: {
@@ -268,6 +357,24 @@ const styles = StyleSheet.create({
   },
   segmentTextActive: {
     color: colors.slate900,
+  },
+  summaryLabel: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  summaryRow: {
+    borderBottomColor: 'rgba(255, 204, 213, 0.22)',
+    borderBottomWidth: 1,
+    gap: 8,
+    paddingBottom: 14,
+  },
+  summaryValue: {
+    color: colors.slate900,
+    fontFamily: typography.fontFamily,
+    fontSize: 16,
+    fontWeight: '800',
   },
   title: {
     color: colors.slate900,

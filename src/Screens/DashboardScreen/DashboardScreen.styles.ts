@@ -904,13 +904,13 @@ const styles = StyleSheet.create({
   ringBlue: {
     backgroundColor: colors.secondary,
     height: 86,
-    left: 0,
+    right: 0,
     top: 86,
     width: 86,
   },
   ringPrimary: {
     backgroundColor: colors.primary,
-    height: 172,
+    height: 86,
     right: 0,
     top: 0,
     width: 86,
@@ -918,7 +918,7 @@ const styles = StyleSheet.create({
   ringPurple: {
     backgroundColor: colors.accentPurple,
     height: 86,
-    right: 0,
+    left: 0,
     top: 0,
     width: 86,
   },
@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tertiary,
     height: 86,
     left: 0,
-    top: 0,
+    top: 86,
     width: 86,
   },
   reloadButton: {
@@ -1094,6 +1094,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     lineHeight: 16,
+  },
+  summaryPeriod: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: -8,
   },
   summaryValue: {
     color: colors.slate900,

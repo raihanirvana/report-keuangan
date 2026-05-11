@@ -1,6 +1,7 @@
 import { apiRequest } from '../Api/apiClient';
 
 import type {
+  BudgetItem,
   BudgetsResponse,
   CopyPreviousBudgetPayload,
   CreateBudgetPayload,
@@ -25,15 +26,15 @@ function copyPreviousBudgets(
 }
 
 function createBudget(token: string, payload: CreateBudgetPayload) {
-  return apiRequest<unknown>('/budgets', {
+  return apiRequest<BudgetItem>('/budgets', {
     body: payload,
     method: 'POST',
     token,
   });
 }
 
-function deleteBudget(token: string, budgetId: string) {
-  return apiRequest<void>(`/budgets/${budgetId}`, {
+function deleteBudget(token: string, budgetId: string, month: string) {
+  return apiRequest<void>(`/budgets/${budgetId}?month=${month}`, {
     method: 'DELETE',
     token,
   });

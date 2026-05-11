@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
     shadowOffset: { height: 8, width: 0 },
     shadowOpacity: 0.16,
     shadowRadius: 18,
-    top: -70,
+    top: 92,
     zIndex: 20,
   },
   icon: {

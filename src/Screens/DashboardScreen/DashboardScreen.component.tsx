@@ -30,6 +30,7 @@ import {
   deleteBudget,
   deleteWallet,
   getBudgets,
+  getCategories,
   getDashboardSummary,
   getTransactions,
   getWallets,
@@ -37,6 +38,7 @@ import {
   type BudgetItem,
   type BudgetPreviousMonth,
   type BudgetsResponse,
+  type Category,
   type CreateBudgetPayload,
   type CreateWalletPayload,
   type DashboardChartCategory,
@@ -95,6 +97,7 @@ type DashboardSheetsProps = {
   usagePeriodLabel: string;
 };
 type DashboardContentProps = {
+  chartAnimationKey: number;
   dashboardSummary: DashboardSummary | null;
   filterLabel: string;
   historyItems: HistoryItemData[];
@@ -106,6 +109,11 @@ type DashboardContentProps = {
   onRefresh: () => void;
   onLogout?: () => void;
   user?: AuthUser | null;
+};
+type SummaryCardsProps = {
+  dashboardSummary: DashboardSummary | null;
+  onOpenHistory: (filter: HistoryFilter) => void;
+  periodLabel: string;
 };
 type DashboardMainContentProps = {
   dashboardData: ReturnType<typeof useDashboardData>;
@@ -153,6 +161,7 @@ type WalletItem = {
 };
 type WalletSheetView = 'create' | 'list';
 type DashboardDataSetters = {
+  setChartAnimationKey: (setter: (key: number) => number) => void;
   setDashboardSummary: (summary: DashboardSummary | null) => void;
   setErrorMessage: (message: string) => void;
   setHistoryItems: (items: HistoryItemData[]) => void;
@@ -231,7 +240,6 @@ const monthOptions = [
   'Nov',
   'Des',
 ] as const;
-
 function Header({ onLogout, user }: DashboardScreenProps) {
   return (
     <View style={styles.header}>
@@ -276,16 +284,14 @@ function BalanceCard(props: {
   );
 }
 
-function SummaryCards(props: {
-  dashboardSummary: DashboardSummary | null;
-  onOpenHistory: (filter: HistoryFilter) => void;
-}) {
+function SummaryCards(props: SummaryCardsProps) {
   return (
     <View style={styles.summaryGrid}>
       <SummaryCard
         icon="↙"
         label="Uang Masuk"
         onPress={() => props.onOpenHistory('Pemasukan')}
+        periodLabel={props.periodLabel}
         value={props.dashboardSummary?.income.formatted ?? 'Rp 0'}
         variant="income"
       />
@@ -293,6 +299,7 @@ function SummaryCards(props: {
         icon="↗"
         label="Uang Keluar"
         onPress={() => props.onOpenHistory('Pengeluaran')}
+        periodLabel={props.periodLabel}
         value={props.dashboardSummary?.expense.formatted ?? 'Rp 0'}
         variant="expense"
       />
@@ -319,6 +326,7 @@ function SummaryCard(props: {
   icon: string;
   label: string;
   onPress: () => void;
+  periodLabel: string;
   value: string;
   variant: 'income' | 'expense';
 }) {
@@ -329,35 +337,48 @@ function SummaryCard(props: {
     >
       <SummaryIconBox icon={props.icon} variant={props.variant} />
       <Text style={styles.summaryLabel}>{props.label}</Text>
+      <Text style={styles.summaryPeriod}>{props.periodLabel}</Text>
       <Text style={styles.summaryValue}>{props.value}</Text>
     </Pressable>
   );
 }
 
-function DonutChart(props: { chart?: DashboardSummary['chart'] }) {
-  const animation = useChartAnimation(props.chart);
-  const slices = getChartSlices(props.chart?.categories ?? []);
+function DonutChart(props: {
+  animationKey: number;
+  chart?: DashboardSummary['chart'];
+}) {
+  const progress = useChartAnimation(props.chart, props.animationKey);
+  const categories = getChartCategories(props.chart);
+  const slices = getChartSlices(categories);
 
   return (
-    <Animated.View style={[styles.chartRing, animation]}>
-      {slices.map(slice => (
-        <View
-          key={slice.id}
-          style={[
-            styles.ringSegment,
-            styles[slice.position],
-            { backgroundColor: slice.color },
-          ]}
-        />
-      ))}
+    <View style={styles.chartRing}>
+      <ChartSlices progress={progress} slices={slices} />
       <View style={styles.chartCenter}>
         <Text style={styles.chartCenterLabel}>KELUAR</Text>
         <Text style={styles.chartCenterValue}>
-          {formatCompactRupiah(props.chart?.expenseTotal ?? 0)}
+          {formatCompactRupiah(getChartExpenseTotal(props.chart))}
         </Text>
       </View>
-    </Animated.View>
+    </View>
   );
+}
+
+function ChartSlices(props: {
+  progress: Animated.Value;
+  slices: ReturnType<typeof getChartSlices>;
+}) {
+  return props.slices.map(slice => (
+    <Animated.View
+      key={slice.id}
+      style={[
+        styles.ringSegment,
+        styles[slice.position],
+        { backgroundColor: slice.color },
+        { opacity: getSliceOpacity(props.progress, slice.index) },
+      ]}
+    />
+  ));
 }
 
 function CategoryBreakdown(props: { categories: DashboardChartCategory[] }) {
@@ -381,58 +402,66 @@ function CategoryBreakdown(props: { categories: DashboardChartCategory[] }) {
   );
 }
 
-function useChartAnimation(chart?: DashboardSummary['chart']) {
+function useChartAnimation(
+  chart: DashboardSummary['chart'] | undefined,
+  animationKey: number,
+) {
   const [progress] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     progress.setValue(0);
     Animated.timing(progress, getChartAnimationConfig()).start();
-  }, [chart?.expenseTotal, chart?.categories.length, progress]);
+  }, [animationKey, chart?.expenseTotal, chart?.categories.length, progress]);
 
-  return getChartAnimatedStyle(progress);
+  return progress;
 }
 
 function getChartAnimationConfig() {
   return {
-    duration: 850,
-    easing: Easing.out(Easing.cubic),
+    duration: 1250,
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
     toValue: 1,
     useNativeDriver: true,
   };
 }
 
-function getChartAnimatedStyle(progress: Animated.Value) {
-  return {
-    opacity: progress,
-    transform: [
-      { scale: progress.interpolate(getScaleInterpolation()) },
-      { rotate: progress.interpolate(getRotateInterpolation()) },
-    ],
-  };
-}
+function getSliceOpacity(progress: Animated.Value, index: number) {
+  const start = index * 0.12;
+  const middle = Math.min(start + 0.28, 1);
+  const end = Math.min(start + 0.46, 1);
 
-function getScaleInterpolation() {
-  return {
-    inputRange: [0, 1],
-    outputRange: [0.86, 1],
-  };
-}
-
-function getRotateInterpolation() {
-  return {
-    inputRange: [0, 1],
-    outputRange: ['-18deg', '0deg'],
-  };
+  return progress.interpolate({
+    inputRange: [0, start, middle, end, 1],
+    outputRange: [0, 0, 0.72, 1, 1],
+  });
 }
 
 function getChartSlices(categories: DashboardChartCategory[]) {
   const positions = ['ringPrimary', 'ringBlue', 'ringYellow', 'ringPurple'] as const;
+  const filledCategories = getFilledChartCategories(categories);
 
   return positions.map((position, index) => ({
-    color: categories[index]?.color ?? '#F1F5F9',
-    id: categories[index]?.categoryId ?? position,
+    color: filledCategories[index]?.color ?? '#F1F5F9',
+    id: `${filledCategories[index]?.categoryId ?? position}-${position}`,
+    index,
     position,
   }));
+}
+
+function getFilledChartCategories(categories: DashboardChartCategory[]) {
+  if (categories.length === 1) {
+    return Array.from({ length: 4 }, () => categories[0]);
+  }
+
+  return categories;
+}
+
+function getChartCategories(chart?: DashboardSummary['chart']) {
+  return chart?.categories ?? [];
+}
+
+function getChartExpenseTotal(chart?: DashboardSummary['chart']) {
+  return chart?.expenseTotal ?? 0;
 }
 
 function UsageSectionHeader(props: {
@@ -450,18 +479,20 @@ function UsageSectionHeader(props: {
 }
 
 function UsageSection(props: {
+  chartAnimationKey: number;
   dashboardSummary: DashboardSummary | null;
   filterLabel: string;
   onOpenUsagePeriod: () => void;
 }) {
   const chart = props.dashboardSummary?.chart;
+  const categories = getChartCategories(chart);
 
   return (
     <View style={styles.section}>
       <UsageSectionHeader {...props} />
       <View style={styles.chartCard}>
-        <DonutChart chart={chart} />
-        <CategoryBreakdown categories={chart?.categories ?? []} />
+        <DonutChart animationKey={props.chartAnimationKey} chart={chart} />
+        <CategoryBreakdown categories={categories} />
       </View>
     </View>
   );
@@ -1826,10 +1857,11 @@ function LimitDetailContent(props: {
 }
 
 type LimitCategoryFormState = {
+  categories: Category[];
   limitAmount: string;
-  name: string;
+  selectedCategoryId: string;
   setLimitAmount: (value: string) => void;
-  setName: (value: string) => void;
+  setSelectedCategoryId: (value: string) => void;
 };
 
 function LimitCategoryCreateContent(props: {
@@ -1853,12 +1885,7 @@ function LimitCategoryCreateContent(props: {
 function LimitCategoryFormFields(props: { state: LimitCategoryFormState }) {
   return (
     <>
-      <WalletFormField
-        label="Nama Kategori"
-        onChangeText={props.state.setName}
-        placeholder="Transport"
-        value={props.state.name}
-      />
+      <LimitCategoryPicker state={props.state} />
       <WalletFormField
         keyboardType="number-pad"
         label="Limit Bulanan"
@@ -1870,16 +1897,80 @@ function LimitCategoryFormFields(props: { state: LimitCategoryFormState }) {
   );
 }
 
+function LimitCategoryPicker(props: { state: LimitCategoryFormState }) {
+  return (
+    <View style={styles.walletFormField}>
+      <Text style={styles.walletFormLabel}>Kategori Pengeluaran</Text>
+      <View style={styles.walletTypeRow}>
+        {props.state.categories.map(category => (
+          <LimitCategoryChip
+            category={category}
+            key={category.id}
+            onSelect={props.state.setSelectedCategoryId}
+            selectedCategoryId={props.state.selectedCategoryId}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function LimitCategoryChip(props: {
+  category: Category;
+  onSelect: (categoryId: string) => void;
+  selectedCategoryId: string;
+}) {
+  const isActive = props.selectedCategoryId === props.category.id;
+
+  return (
+    <Pressable
+      onPress={() => props.onSelect(props.category.id)}
+      style={[styles.walletTypeChip, isActive ? styles.walletTypeChipActive : null]}
+    >
+      <Text style={[styles.walletTypeText, isActive ? styles.walletTypeTextActive : null]}>
+        {props.category.name}
+      </Text>
+    </Pressable>
+  );
+}
+
 function useLimitCategoryFormState(): LimitCategoryFormState {
+  const categories = useExpenseCategories();
   const [limitAmount, setLimitAmount] = useState('');
-  const [name, setName] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const effectiveCategoryId = selectedCategoryId || categories[0]?.id || '';
 
   return {
+    categories,
     limitAmount,
-    name,
+    selectedCategoryId: effectiveCategoryId,
     setLimitAmount: (value: string) => setLimitAmount(formatMoneyInput(value)),
-    setName,
+    setSelectedCategoryId,
   };
+}
+
+function useExpenseCategories() {
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    fetchExpenseCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, []);
+
+  return categories;
+}
+
+async function fetchExpenseCategories() {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return [];
+  }
+
+  const response = await getCategories(token, { type: 'EXPENSE' });
+
+  return response.data;
 }
 
 function LimitCategoryCreateView(props: {
@@ -2136,42 +2227,23 @@ async function deleteLimitCategory(month: string, budgetId: string) {
     throw new Error('Missing auth token');
   }
 
-  await deleteBudget(token, budgetId);
+  await deleteBudget(token, budgetId, month);
 
   return fetchLimitDetails(month);
 }
 
 function isLimitCategoryFormValid(state: LimitCategoryFormState) {
-  return state.name.trim().length >= 2 && parseWalletBalance(state.limitAmount) > 0;
+  return Boolean(state.selectedCategoryId) && parseWalletBalance(state.limitAmount) > 0;
 }
 
 function getCreateBudgetPayload(
   month: string,
   state: LimitCategoryFormState,
 ): CreateBudgetPayload {
-  const dateRange = getBudgetDateRange(month);
-
   return {
-    category: {
-      color: '#4EA8DE',
-      icon: 'savings',
-      name: state.name.trim(),
-    },
-    endsAt: dateRange.endsAt,
+    categoryId: state.selectedCategoryId,
     limitAmount: parseWalletBalance(state.limitAmount),
-    period: 'MONTHLY',
-    startsAt: dateRange.startsAt,
-  };
-}
-
-function getBudgetDateRange(month: string) {
-  const [year, monthNumber] = month.split('-').map(Number);
-  const startsAt = new Date(Date.UTC(year, monthNumber - 1, 1));
-  const endsAt = new Date(Date.UTC(year, monthNumber, 0, 23, 59, 59, 999));
-
-  return {
-    endsAt: endsAt.toISOString(),
-    startsAt: startsAt.toISOString(),
+    month,
   };
 }
 
@@ -2380,6 +2452,7 @@ function FloatingAddButton(props: { onPress: () => void }) {
 function AddSheetOverlay(props: DashboardSheetsProps) {
   return (
     <AddTransactionSheet
+      onChanged={props.onDashboardChanged}
       onClose={props.onCloseAddSheet}
       visible={props.isAddSheetVisible}
     />
@@ -2458,15 +2531,33 @@ function DashboardBodySections(props: DashboardContentProps) {
   return (
     <>
       <DashboardBalanceCard {...props} />
+      <DashboardMiddleSections {...props} />
+      <DashboardFooterSections {...props} />
+    </>
+  );
+}
+
+function DashboardMiddleSections(props: DashboardContentProps) {
+  return (
+    <>
       <SummaryCards
         dashboardSummary={props.dashboardSummary}
         onOpenHistory={props.onOpenFullHistory}
+        periodLabel={props.filterLabel}
       />
       <UsageSection
+        chartAnimationKey={props.chartAnimationKey}
         dashboardSummary={props.dashboardSummary}
         filterLabel={props.filterLabel}
         onOpenUsagePeriod={props.onOpenUsagePeriod}
       />
+    </>
+  );
+}
+
+function DashboardFooterSections(props: DashboardContentProps) {
+  return (
+    <>
       <SpendingLimitSection
         dashboardSummary={props.dashboardSummary}
         onOpenLimitDetail={props.onOpenLimitDetail}
@@ -2949,27 +3040,46 @@ async function loadWalletItems(setItems: (items: WalletItem[]) => void) {
 }
 
 function useDashboardData(month: string) {
-  const [dashboardSummary, setDashboardSummary] =
-    useState<DashboardSummary | null>(null);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [historyItems, setHistoryItems] = useState<HistoryItemData[]>([]);
-  const [isRefreshing, setRefreshing] = useState(false);
+  const state = useDashboardLocalState();
   const refreshDashboard = () => (
-    loadDashboardData(month, {
-      setDashboardSummary,
-      setErrorMessage,
-      setHistoryItems,
-      setRefreshing,
-    })
+    loadDashboardData(month, getDashboardDataSetters(state))
   );
   useInitialDashboardRefresh(refreshDashboard, month);
 
+  return { ...state, refreshDashboard };
+}
+
+function useDashboardLocalState() {
+  const [dashboardSummary, setDashboardSummary] =
+    useState<DashboardSummary | null>(null);
+  const [chartAnimationKey, setChartAnimationKey] = useState(0);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [historyItems, setHistoryItems] = useState<HistoryItemData[]>([]);
+  const [isRefreshing, setRefreshing] = useState(false);
+
   return {
+    chartAnimationKey,
     dashboardSummary,
     errorMessage,
     historyItems,
     isRefreshing,
-    refreshDashboard,
+    setChartAnimationKey,
+    setDashboardSummary,
+    setErrorMessage,
+    setHistoryItems,
+    setRefreshing,
+  };
+}
+
+function getDashboardDataSetters(
+  state: ReturnType<typeof useDashboardLocalState>,
+) {
+  return {
+    setChartAnimationKey: state.setChartAnimationKey,
+    setDashboardSummary: state.setDashboardSummary,
+    setErrorMessage: state.setErrorMessage,
+    setHistoryItems: state.setHistoryItems,
+    setRefreshing: state.setRefreshing,
   };
 }
 
@@ -2989,6 +3099,7 @@ async function loadDashboardData(month: string, setters: DashboardDataSetters) {
     const [summary, historyItems] = await fetchDashboardHomeData(month);
     setters.setDashboardSummary(summary);
     setters.setHistoryItems(historyItems);
+    setters.setChartAnimationKey(key => key + 1);
     setters.setErrorMessage('');
   } catch (error) {
     if (isSessionExpiredError(error)) {
@@ -3029,6 +3140,7 @@ function DashboardMainContent(props: DashboardMainContentProps) {
   return (
     <>
       <DashboardContent
+        chartAnimationKey={props.dashboardData.chartAnimationKey}
         dashboardSummary={props.dashboardData.dashboardSummary}
         filterLabel={props.filterLabel}
         historyItems={props.dashboardData.historyItems}

@@ -1,7 +1,6 @@
 type TransactionType = 'EXPENSE' | 'INCOME' | 'TRANSFER';
 
 type TransactionWallet = {
-  id: string;
   name: string;
 };
 
@@ -34,7 +33,19 @@ type TransactionsQuery = {
   walletId?: string;
 };
 
+type CreateTransactionPayload = {
+  amount: number;
+  categoryId?: string;
+  fromWalletId?: string;
+  note?: string;
+  title: string;
+  toWalletId?: string;
+  type: TransactionType;
+  walletId?: string;
+};
+
 export type {
+  CreateTransactionPayload,
   Transaction,
   TransactionCategory,
   TransactionsQuery,
