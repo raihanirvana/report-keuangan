@@ -5,6 +5,7 @@ import type {
   BudgetsResponse,
   CopyPreviousBudgetPayload,
   CreateBudgetPayload,
+  UpdateBudgetPayload,
 } from './budgets.types';
 
 function getBudgets(token: string, month: string) {
@@ -40,9 +41,22 @@ function deleteBudget(token: string, budgetId: string, month: string) {
   });
 }
 
+function updateBudget(
+  token: string,
+  budgetId: string,
+  payload: UpdateBudgetPayload,
+) {
+  return apiRequest<BudgetItem>(`/budgets/${budgetId}`, {
+    body: payload,
+    method: 'PATCH',
+    token,
+  });
+}
+
 export {
   copyPreviousBudgets,
   createBudget,
   deleteBudget,
   getBudgets,
+  updateBudget,
 };

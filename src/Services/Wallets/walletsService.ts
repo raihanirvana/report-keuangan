@@ -1,6 +1,10 @@
 import { apiRequest } from '../Api/apiClient';
 
-import type { CreateWalletPayload, Wallet } from './wallets.types';
+import type {
+  CreateWalletPayload,
+  UpdateWalletPayload,
+  Wallet,
+} from './wallets.types';
 
 function getWallets(token: string) {
   return apiRequest<Wallet[]>('/wallets', {
@@ -17,6 +21,14 @@ function createWallet(token: string, payload: CreateWalletPayload) {
   });
 }
 
+function updateWallet(token: string, walletId: string, payload: UpdateWalletPayload) {
+  return apiRequest<Wallet>(`/wallets/${walletId}`, {
+    body: payload,
+    method: 'PATCH',
+    token,
+  });
+}
+
 function deleteWallet(token: string, walletId: string) {
   return apiRequest<void>(`/wallets/${walletId}`, {
     method: 'DELETE',
@@ -28,4 +40,5 @@ export {
   createWallet,
   deleteWallet,
   getWallets,
+  updateWallet,
 };

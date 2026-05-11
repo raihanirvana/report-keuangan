@@ -48,6 +48,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
+  categoryPresetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
   addWalletButton: {
     alignItems: 'center',
     backgroundColor: colors.white,
@@ -178,12 +183,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  chartArcBase: {
-    borderRadius: 86,
-    height: 172,
-    position: 'absolute',
-    width: 172,
-  },
   chartCard: {
     alignItems: 'center',
     backgroundColor: colors.white,
@@ -198,12 +197,10 @@ const styles = StyleSheet.create({
   },
   chartCenter: {
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 54,
-    height: 108,
+    height: 116,
     justifyContent: 'center',
     position: 'absolute',
-    width: 108,
+    width: 116,
   },
   chartCenterLabel: {
     color: colors.slate400,
@@ -214,8 +211,9 @@ const styles = StyleSheet.create({
   chartCenterValue: {
     color: colors.primary,
     fontFamily: typography.fontFamily,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
+    textAlign: 'center',
   },
   chartEmptyText: {
     color: colors.slate400,
@@ -226,7 +224,6 @@ const styles = StyleSheet.create({
   },
   chartRing: {
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
     borderRadius: 86,
     height: 172,
     justifyContent: 'center',
@@ -356,6 +353,19 @@ const styles = StyleSheet.create({
   iconButtonText: {
     color: colors.primary,
     fontSize: 22,
+  },
+  colorSwatch: {
+    borderColor: colors.white,
+    borderRadius: 16,
+    borderWidth: 3,
+    height: 32,
+    width: 32,
+  },
+  colorSwatchActive: {
+    shadowColor: colors.slate900,
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
   },
   logoutButton: {
     alignItems: 'center',
@@ -518,6 +528,25 @@ const styles = StyleSheet.create({
   fullHistoryIcon: {
     color: colors.primary,
     fontSize: 22,
+    fontWeight: '800',
+  },
+  iconPresetChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 204, 213, 0.12)',
+    borderColor: 'rgba(255, 204, 213, 0.28)',
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 76,
+    justifyContent: 'center',
+    width: 76,
+  },
+  iconPresetChipActive: {
+    backgroundColor: 'rgba(238, 43, 108, 0.12)',
+    borderColor: colors.primary,
+  },
+  iconPresetSymbol: {
+    color: colors.slate900,
+    fontSize: 28,
     fontWeight: '800',
   },
   fullHistoryIconBox: {
@@ -734,6 +763,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 6,
   },
+  limitSecondaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderColor: 'rgba(238, 43, 108, 0.24)',
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: -4,
+    paddingVertical: 16,
+  },
+  limitSecondaryButtonText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '800',
+  },
   limitDetailTrack: {
     backgroundColor: '#F1F5F9',
     borderRadius: 5,
@@ -900,37 +944,6 @@ const styles = StyleSheet.create({
   purpleWalletOption: {
     backgroundColor: 'rgba(168, 85, 247, 0.13)',
     borderColor: 'rgba(168, 85, 247, 0.16)',
-  },
-  ringBlue: {
-    backgroundColor: colors.secondary,
-    height: 86,
-    right: 0,
-    top: 86,
-    width: 86,
-  },
-  ringPrimary: {
-    backgroundColor: colors.primary,
-    height: 86,
-    right: 0,
-    top: 0,
-    width: 86,
-  },
-  ringPurple: {
-    backgroundColor: colors.accentPurple,
-    height: 86,
-    left: 0,
-    top: 0,
-    width: 86,
-  },
-  ringSegment: {
-    position: 'absolute',
-  },
-  ringYellow: {
-    backgroundColor: colors.tertiary,
-    height: 86,
-    left: 0,
-    top: 86,
-    width: 86,
   },
   reloadButton: {
     backgroundColor: colors.slate900,
@@ -1208,6 +1221,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginLeft: 8,
   },
+  walletHeaderActions: {
+    flexDirection: 'row',
+  },
   walletDeleteButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
@@ -1227,6 +1243,26 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     lineHeight: 22,
+  },
+  walletEditButton: {
+    alignItems: 'center',
+    backgroundColor: colors.secondary,
+    borderColor: colors.white,
+    borderRadius: 14,
+    borderWidth: 2,
+    height: 28,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    width: 28,
+    zIndex: 2,
+  },
+  walletEditText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 16,
   },
   walletEmptyState: {
     alignItems: 'center',

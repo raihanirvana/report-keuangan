@@ -18,8 +18,17 @@ type CreateWalletPayload = {
   type: WalletType;
 };
 
+type UpdateWalletPayload = {
+  balance?: number;
+  color?: string;
+  icon?: string;
+  name?: string;
+  type?: WalletType;
+};
+
 export type {
   CreateWalletPayload,
+  UpdateWalletPayload,
   Wallet,
   WalletType,
 };

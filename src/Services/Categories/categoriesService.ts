@@ -1,6 +1,10 @@
 import { apiRequest } from '../Api/apiClient';
 
-import type { CategoriesQuery, Category } from './categories.types';
+import type {
+  CategoriesQuery,
+  Category,
+  CreateCategoryPayload,
+} from './categories.types';
 
 function getCategories(token: string, query: CategoriesQuery = {}) {
   const params = new URLSearchParams();
@@ -20,6 +24,15 @@ function getCategories(token: string, query: CategoriesQuery = {}) {
   );
 }
 
+function createCategory(token: string, payload: CreateCategoryPayload) {
+  return apiRequest<Category>('/categories', {
+    body: payload,
+    method: 'POST',
+    token,
+  });
+}
+
 export {
+  createCategory,
   getCategories,
 };

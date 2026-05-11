@@ -13,8 +13,16 @@ type CategoriesQuery = {
   type?: CategoryType;
 };
 
+type CreateCategoryPayload = {
+  color: string;
+  icon: string;
+  name: string;
+  type: CategoryType;
+};
+
 export type {
   CategoriesQuery,
   Category,
+  CreateCategoryPayload,
   CategoryType,
 };

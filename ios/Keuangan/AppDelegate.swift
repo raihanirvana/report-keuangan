@@ -40,9 +40,13 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
+    let metroPort = ProcessInfo.processInfo.environment["RCT_METRO_PORT"] ?? "8082"
+    let bundleURLProvider = RCTBundleURLProvider.sharedSettings()
+    bundleURLProvider.jsLocation = "localhost:\(metroPort)"
+
+    return bundleURLProvider.jsBundleURL(forBundleRoot: "index")
 #else
-    Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }
 }

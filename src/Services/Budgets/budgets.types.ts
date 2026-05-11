@@ -41,6 +41,11 @@ type CreateBudgetPayload = {
   month: string;
 };
 
+type UpdateBudgetPayload = {
+  limitAmount: number;
+  month: string;
+};
+
 export type {
   BudgetItem,
   BudgetPreviousMonth,
@@ -48,4 +53,5 @@ export type {
   BudgetsResponse,
   CopyPreviousBudgetPayload,
   CreateBudgetPayload,
+  UpdateBudgetPayload,
 };
