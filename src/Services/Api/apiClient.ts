@@ -55,6 +55,14 @@ async function apiRequest<TData>(path: string, options: RequestOptions) {
     throw new Error(await parseError(response));
   }
 
+  if (response.status === 204) {
+    return {
+      data: undefined as TData,
+      error: null,
+      meta: {},
+    };
+  }
+
   return (await response.json()) as ApiEnvelope<TData>;
 }
 

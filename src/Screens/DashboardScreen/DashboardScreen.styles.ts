@@ -642,6 +642,7 @@ const styles = StyleSheet.create({
   limitDetailHeader: {
     alignItems: 'center',
     marginBottom: 30,
+    position: 'relative',
   },
   limitDetailIcon: {
     fontSize: 24,
@@ -650,6 +651,7 @@ const styles = StyleSheet.create({
   },
   limitDetailItem: {
     gap: 10,
+    position: 'relative',
   },
   limitDetailItemHeader: {
     alignItems: 'center',
@@ -732,6 +734,11 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'space-between',
     marginBottom: 24,
+  },
+  limitHeaderAction: {
+    position: 'absolute',
+    right: 0,
+    top: 22,
   },
   limitIcon: {
     color: colors.primary,

@@ -1,6 +1,8 @@
 import {
   type ComponentProps,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
   useEffect,
   useState,
 } from 'react';
@@ -17,13 +19,22 @@ import {
   BottomSheet,
   type BottomSheetDragHandleProps,
 } from '../../Components/BottomSheet';
+import { Snackbar } from '../../Components/Snackbar';
 import AddTransactionSheet from '../../Navigation/AppTabs/AddTransactionSheet.component';
 import {
+  copyPreviousBudgets,
+  createBudget,
   createWallet,
+  deleteBudget,
   deleteWallet,
+  getBudgets,
   getDashboardSummary,
   getWallets,
   type AuthUser,
+  type BudgetItem,
+  type BudgetPreviousMonth,
+  type BudgetsResponse,
+  type CreateBudgetPayload,
   type CreateWalletPayload,
   type DashboardSummary,
   type Wallet,
@@ -42,51 +53,32 @@ type LimitTone = 'blue' | 'primary' | 'purple' | 'yellow';
 type WalletTone = 'blue' | 'primary' | 'purple' | 'yellow';
 type LimitDetail = {
   icon: string;
+  id: string;
   label: string;
   progress: string;
   tone: LimitTone;
   width: `${number}%`;
 };
-
-const limitDetails: LimitDetail[] = [
-  {
-    icon: '≋',
-    label: 'Internet/Kuota',
-    progress: '75%',
-    tone: 'blue',
-    width: '75%',
-  },
-  {
-    icon: '⌂',
-    label: 'Kos/Rent',
-    progress: '100%',
-    tone: 'primary',
-    width: '100%',
-  },
-  {
-    icon: '☰',
-    label: 'Food',
-    progress: '60%',
-    tone: 'yellow',
-    width: '60%',
-  },
-  {
-    icon: '☻',
-    label: 'Skincare',
-    progress: '80%',
-    tone: 'purple',
-    width: '80%',
-  },
-];
-const newLimitDetail: LimitDetail = {
-  icon: '↯',
-  label: 'Transport',
-  progress: '0%',
-  tone: 'blue',
-  width: '0%',
+type LimitDetailState = {
+  items: LimitDetail[];
+  previousMonth?: BudgetPreviousMonth;
+};
+type SetLimitState = Dispatch<SetStateAction<LimitDetailState>>;
+type LimitDetailStateProps = {
+  month: string;
+  onChanged: () => void;
+  visible: boolean;
+};
+type SaveLimitParams = {
+  month: string;
+  onChanged: () => void;
+  setLimitState: SetLimitState;
+  setSnackbarMessage: (message: string) => void;
+  setView: (view: LimitSheetView) => void;
 };
 
 type DashboardSheetsProps = {
+  apiMonth: string;
   isFullHistoryVisible: boolean;
   isAddSheetVisible: boolean;
   isLimitDetailVisible: boolean;
@@ -125,9 +117,9 @@ type DashboardScreenProps = {
 };
 type DashboardScreenShellProps = {
   dashboardData: ReturnType<typeof useDashboardData>;
-  filterLabel: string;
   onLogout?: () => void;
   period: ReturnType<typeof useUsagePeriodState>;
+  periodFilter: DashboardPeriod;
   sheets: ReturnType<typeof useDashboardSheetState>;
   user?: AuthUser | null;
 };
@@ -147,10 +139,29 @@ type DashboardDataSetters = {
   setErrorMessage: (message: string) => void;
   setRefreshing: (value: boolean) => void;
 };
+type DashboardPeriod = {
+  apiMonth: string;
+  label: string;
+};
 type LimitDetailSheetContentProps = {
   dragHandleProps: BottomSheetDragHandleProps;
+  month: string;
+  onChanged: () => void;
   onClose: () => void;
+  visible: boolean;
 };
+type LimitDetailListViewProps = {
+  dragHandleProps: BottomSheetDragHandleProps;
+  isDeleteMode: boolean;
+  limitItems: LimitDetail[];
+  onCreateCategory: () => void;
+  onDeleteBudget: (budgetId: string) => void;
+  onHideSnackbar: () => void;
+  onToggleDelete: () => void;
+  onUsePreviousMonth: () => void;
+  snackbarMessage: string;
+};
+type LimitSheetState = ReturnType<typeof useLimitDetailState>;
 type UsagePeriodContentProps = {
   onApply: () => void;
   selectedMonth: string;
@@ -233,21 +244,24 @@ function BalanceCard(props: {
   );
 }
 
-function SummaryCards(props: { onOpenHistory: (filter: HistoryFilter) => void }) {
+function SummaryCards(props: {
+  dashboardSummary: DashboardSummary | null;
+  onOpenHistory: (filter: HistoryFilter) => void;
+}) {
   return (
     <View style={styles.summaryGrid}>
       <SummaryCard
         icon="↙"
         label="Uang Masuk"
         onPress={() => props.onOpenHistory('Pemasukan')}
-        value="Rp 2.100k"
+        value={props.dashboardSummary?.income.formatted ?? 'Rp 0'}
         variant="income"
       />
       <SummaryCard
         icon="↗"
         label="Uang Keluar"
         onPress={() => props.onOpenHistory('Pengeluaran')}
-        value="Rp 850k"
+        value={props.dashboardSummary?.expense.formatted ?? 'Rp 0'}
         variant="expense"
       />
     </View>
@@ -347,37 +361,74 @@ function UsageSection(props: {
   );
 }
 
-function SpendingLimitSection(props: { onOpenLimitDetail: () => void }) {
+function SpendingLimitSection(props: {
+  dashboardSummary: DashboardSummary | null;
+  onOpenLimitDetail: () => void;
+}) {
+  const budgetLimit = props.dashboardSummary?.budgetLimit;
+
   return (
     <View style={styles.limitSection}>
       <Pressable onPress={props.onOpenLimitDetail} style={styles.limitCard}>
-        <View style={styles.limitHeader}>
-          <View style={styles.limitTitleRow}>
-            <Text style={styles.limitIcon}>◎</Text>
-            <Text numberOfLines={1} style={styles.limitTitle}>
-              Limit Pengeluaran
-            </Text>
-          </View>
-          <Text numberOfLines={1} style={styles.limitBadge}>
-            60%
-          </Text>
-        </View>
-        <View style={styles.limitTrack}>
-          <View style={styles.limitProgress} />
-        </View>
-        <SpendingLimitAmount />
+        <SpendingLimitHeader percentage={budgetLimit?.percentage ?? 0} />
+        <SpendingLimitProgress percentage={budgetLimit?.percentage ?? 0} />
+        <SpendingLimitAmount
+          limitAmount={budgetLimit?.limitAmount ?? 0}
+          usedAmount={budgetLimit?.usedAmount ?? 0}
+        />
       </Pressable>
     </View>
   );
 }
 
-function SpendingLimitAmount() {
+function SpendingLimitHeader(props: { percentage: number }) {
+  return (
+    <View style={styles.limitHeader}>
+      <View style={styles.limitTitleRow}>
+        <Text style={styles.limitIcon}>◎</Text>
+        <Text numberOfLines={1} style={styles.limitTitle}>
+          Limit Pengeluaran
+        </Text>
+      </View>
+      <Text numberOfLines={1} style={styles.limitBadge}>
+        {formatLimitPercentage(props.percentage)}
+      </Text>
+    </View>
+  );
+}
+
+function SpendingLimitProgress(props: { percentage: number }) {
+  return (
+    <View style={styles.limitTrack}>
+      <View
+        style={[
+          styles.limitProgress,
+          { width: getLimitWidth(props.percentage) },
+        ]}
+      />
+    </View>
+  );
+}
+
+function SpendingLimitAmount(props: { limitAmount: number; usedAmount: number }) {
   return (
     <Text style={styles.limitAmount}>
-      <Text style={styles.limitAmountUsed}>Rp 3.000.000</Text>
-      <Text> / Rp 5.000.000</Text>
+      <Text style={styles.limitAmountUsed}>{formatRupiah(props.usedAmount)}</Text>
+      <Text> / {formatRupiah(props.limitAmount)}</Text>
     </Text>
   );
+}
+
+function getLimitWidth(percentage: number): `${number}%` {
+  return `${Math.min(Math.max(percentage, 0), 100)}%` as `${number}%`;
+}
+
+function formatLimitPercentage(value: number) {
+  return `${Math.round(value)}%`;
+}
+
+function formatRupiah(value: number) {
+  return `Rp ${value.toLocaleString('id-ID')}`;
 }
 
 function HistorySection(props: { onOpenFullHistory: () => void }) {
@@ -936,7 +987,13 @@ function getWalletBalanceDigits(value: string) {
   return value.replace(/\D/g, '');
 }
 
-function formatWalletBalanceInput(value: string) {
+function parseWalletBalance(value: string) {
+  const amount = Number(getWalletBalanceDigits(value));
+
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function formatMoneyInput(value: string) {
   const digits = getWalletBalanceDigits(value);
 
   if (!digits) {
@@ -944,12 +1001,6 @@ function formatWalletBalanceInput(value: string) {
   }
 
   return `Rp ${Number(digits).toLocaleString('id-ID')}`;
-}
-
-function parseWalletBalance(value: string) {
-  const amount = Number(getWalletBalanceDigits(value));
-
-  return Number.isFinite(amount) ? amount : 0;
 }
 
 function getWalletSubmitPayload(params: {
@@ -1102,7 +1153,7 @@ function useWalletFormState(): WalletFormState {
   const [name, setName] = useState('');
   const [selectedType, setSelectedType] = useState<WalletType>('Bank');
   const setFormattedBalance = (value: string) => {
-    setBalance(formatWalletBalanceInput(value));
+    setBalance(formatMoneyInput(value));
   };
   const focusBalance = () => {
     setBalance(value => value || 'Rp ');
@@ -1371,14 +1422,80 @@ function getLimitDetailStyles(tone: LimitTone) {
   };
 }
 
+function getBudgetTone(color: string): LimitTone {
+  const normalizedColor = color.toUpperCase();
+
+  if (normalizedColor === '#4EA8DE') {
+    return 'blue';
+  }
+
+  if (normalizedColor === '#A29BFE') {
+    return 'purple';
+  }
+
+  return normalizedColor === '#FBCF33' ? 'yellow' : 'primary';
+}
+
+function mapBudgetToLimitDetail(item: BudgetItem): LimitDetail {
+  return {
+    icon: getBudgetDisplayIcon(item.icon),
+    id: item.id,
+    label: item.name,
+    progress: item.statusLabel || formatLimitPercentage(item.percentage),
+    tone: getBudgetTone(item.color),
+    width: getLimitWidth(item.percentage),
+  };
+}
+
+function getBudgetDisplayIcon(icon: string) {
+  const iconMap: Record<string, string> = {
+    home: '⌂',
+    lunch_dining: '☰',
+    savings: '◎',
+    two_wheeler: '↗',
+    wifi: '≋',
+  };
+
+  return iconMap[icon] ?? '◎';
+}
+
+function mapBudgetsResponse(response: BudgetsResponse): LimitDetailState {
+  return {
+    items: response.items.map(mapBudgetToLimitDetail),
+    previousMonth: response.previousMonth,
+  };
+}
+
+async function fetchLimitDetails(month: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return { items: [] };
+  }
+
+  const response = await getBudgets(token, month);
+
+  return mapBudgetsResponse(response.data);
+}
+
 function LimitDetailHeader(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  isDeleteMode: boolean;
+  limitItems: LimitDetail[];
+  onToggleDelete: () => void;
 }) {
   return (
     <View style={styles.limitDetailHeader} {...props.dragHandleProps}>
       <View style={styles.limitDetailHandle} />
       <Text style={styles.limitDetailTitle}>Detail Limit 📊</Text>
       <Text style={styles.limitDetailSubtitle}>SEMANGAT HEMAT YA, KAK! ✨</Text>
+      <View style={styles.limitHeaderAction}>
+        <WalletTrashButton
+          isActive={props.isDeleteMode}
+          isDisabled={!props.limitItems.length}
+          onPress={props.onToggleDelete}
+        />
+      </View>
     </View>
   );
 }
@@ -1420,9 +1537,17 @@ function LimitDetailProgress({ item }: { item: LimitDetail }) {
   );
 }
 
-function LimitDetailItem(props: { item: LimitDetail }) {
+function LimitDetailItem(props: {
+  isDeleteMode: boolean;
+  item: LimitDetail;
+  onDelete: () => void;
+}) {
   return (
     <View style={styles.limitDetailItem}>
+      <WalletDeleteButton
+        isVisible={props.isDeleteMode}
+        onPress={props.onDelete}
+      />
       <LimitDetailItemHeader item={props.item} />
       <LimitDetailProgress item={props.item} />
     </View>
@@ -1456,13 +1581,20 @@ function LimitEmptyState(props: {
 }
 
 function LimitDetailItems(props: {
+  isDeleteMode: boolean;
   limitItems: LimitDetail[];
   onCreateCategory: () => void;
+  onDeleteBudget: (budgetId: string) => void;
 }) {
   return (
     <View style={styles.limitDetailContent}>
       {props.limitItems.map(item => (
-        <LimitDetailItem item={item} key={item.label} />
+        <LimitDetailItem
+          isDeleteMode={props.isDeleteMode}
+          item={item}
+          key={item.id}
+          onDelete={() => props.onDeleteBudget(item.id)}
+        />
       ))}
       <Pressable
         onPress={props.onCreateCategory}
@@ -1475,8 +1607,10 @@ function LimitDetailItems(props: {
 }
 
 function LimitDetailContent(props: {
+  isDeleteMode: boolean;
   limitItems: LimitDetail[];
   onCreateCategory: () => void;
+  onDeleteBudget: (budgetId: string) => void;
   onUsePreviousMonth: () => void;
 }) {
   if (props.limitItems.length) {
@@ -1493,23 +1627,68 @@ function LimitDetailContent(props: {
   );
 }
 
-function LimitCategoryCreateContent(props: { onSaveCategory: () => void }) {
+type LimitCategoryFormState = {
+  limitAmount: string;
+  name: string;
+  setLimitAmount: (value: string) => void;
+  setName: (value: string) => void;
+};
+
+function LimitCategoryCreateContent(props: {
+  onSaveCategory: (state: LimitCategoryFormState) => void;
+}) {
+  const state = useLimitCategoryFormState();
+
   return (
     <View style={styles.walletForm}>
-      <WalletFormField label="Nama Kategori" placeholder="Transport" />
-      <WalletFormField label="Limit Bulanan" placeholder="Rp 500.000" />
-      <Pressable onPress={props.onSaveCategory} style={styles.saveWalletButton}>
+      <LimitCategoryFormFields state={state} />
+      <Pressable
+        onPress={() => props.onSaveCategory(state)}
+        style={styles.saveWalletButton}
+      >
         <Text style={styles.saveWalletButtonText}>Simpan Kategori</Text>
       </Pressable>
     </View>
   );
 }
 
+function LimitCategoryFormFields(props: { state: LimitCategoryFormState }) {
+  return (
+    <>
+      <WalletFormField
+        label="Nama Kategori"
+        onChangeText={props.state.setName}
+        placeholder="Transport"
+        value={props.state.name}
+      />
+      <WalletFormField
+        keyboardType="number-pad"
+        label="Limit Bulanan"
+        onChangeText={props.state.setLimitAmount}
+        placeholder="Rp 500.000"
+        value={props.state.limitAmount}
+      />
+    </>
+  );
+}
+
+function useLimitCategoryFormState(): LimitCategoryFormState {
+  const [limitAmount, setLimitAmount] = useState('');
+  const [name, setName] = useState('');
+
+  return {
+    limitAmount,
+    name,
+    setLimitAmount: (value: string) => setLimitAmount(formatMoneyInput(value)),
+    setName,
+  };
+}
+
 function LimitCategoryCreateView(props: {
   dragHandleProps: BottomSheetDragHandleProps;
   onClose: () => void;
   onGoBack: () => void;
-  onSaveCategory: () => void;
+  onSaveCategory: (state: LimitCategoryFormState) => void;
 }) {
   return (
     <>
@@ -1525,67 +1704,335 @@ function LimitCategoryCreateView(props: {
   );
 }
 
-function LimitDetailListView(props: {
-  dragHandleProps: BottomSheetDragHandleProps;
-  limitItems: LimitDetail[];
-  onCreateCategory: () => void;
-  onUsePreviousMonth: () => void;
-}) {
+function LimitDetailListView(props: LimitDetailListViewProps) {
   return (
     <>
-      <LimitDetailHeader dragHandleProps={props.dragHandleProps} />
+      <LimitDetailHeader
+        dragHandleProps={props.dragHandleProps}
+        isDeleteMode={props.isDeleteMode}
+        limitItems={props.limitItems}
+        onToggleDelete={props.onToggleDelete}
+      />
+      <Snackbar
+        message={props.snackbarMessage}
+        onHide={props.onHideSnackbar}
+      />
       <LimitDetailContent
+        isDeleteMode={props.isDeleteMode}
         limitItems={props.limitItems}
         onCreateCategory={props.onCreateCategory}
+        onDeleteBudget={props.onDeleteBudget}
         onUsePreviousMonth={props.onUsePreviousMonth}
       />
     </>
   );
 }
 
-function useLimitDetailState() {
-  const [limitItems, setLimitItems] = useState<LimitDetail[]>([]);
+function useLimitDetailState(props: LimitDetailStateProps) {
+  const state = useLimitDetailLocalState();
+  const saveParams = getSaveLimitParams(
+    props,
+    state.setLimitState,
+    state.setSnackbarMessage,
+    state.setView,
+  );
+  const actions = getLimitDetailActions(saveParams, state);
+
+  useLimitDetailRefresh(props.month, props.visible, state.setLimitState);
+
+  return getLimitDetailStateValue({
+    hideSnackbar: () => state.setSnackbarMessage(''),
+    isDeleteMode: state.isDeleteMode,
+    limitItems: state.limitState.items,
+    setView: state.setView,
+    snackbarMessage: state.snackbarMessage,
+    ...actions,
+    view: state.view,
+  });
+}
+
+function useLimitDetailLocalState() {
+  const [limitState, setLimitState] = useState<LimitDetailState>({ items: [] });
+  const [isDeleteMode, setDeleteMode] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const [view, setView] = useState<LimitSheetView>('list');
-  const usePreviousMonth = () => setLimitItems([...limitDetails]);
-  const saveCategory = () => {
-    setLimitItems(currentItems => [...currentItems, newLimitDetail]);
-    setView('list');
-  };
 
   return {
-    limitItems,
-    saveCategory,
+    isDeleteMode,
+    limitState,
+    setDeleteMode,
+    setLimitState,
+    setSnackbarMessage,
     setView,
-    usePreviousMonth,
+    snackbarMessage,
     view,
   };
 }
 
-function LimitDetailSheetContent(props: LimitDetailSheetContentProps) {
-  const limitSheet = useLimitDetailState();
+function getLimitDetailActions(
+  params: SaveLimitParams,
+  state: ReturnType<typeof useLimitDetailLocalState>,
+) {
+  return {
+    deleteCategory: getDeleteLimitCategoryHandler(params),
+    saveCategory: getSaveLimitCategoryHandler(params),
+    toggleDeleteMode: () => state.setDeleteMode(value => !value),
+    usePreviousMonth: getUsePreviousMonthHandler(params, state.limitState),
+  };
+}
 
-  if (limitSheet.view === 'create') {
-    return (
-      <LimitCategoryCreateView
-        dragHandleProps={props.dragHandleProps}
-        onClose={props.onClose}
-        onGoBack={() => limitSheet.setView('list')}
-        onSaveCategory={limitSheet.saveCategory}
-      />
-    );
+function getSaveLimitParams(
+  props: Pick<LimitDetailStateProps, 'month' | 'onChanged'>,
+  setLimitState: SetLimitState,
+  setSnackbarMessage: (message: string) => void,
+  setView: (view: LimitSheetView) => void,
+): SaveLimitParams {
+  return {
+    month: props.month,
+    onChanged: props.onChanged,
+    setLimitState,
+    setSnackbarMessage,
+    setView,
+  };
+}
+
+function getLimitDetailStateValue<TValue extends object>(value: TValue) {
+  return value;
+}
+
+function getUsePreviousMonthHandler(
+  params: SaveLimitParams,
+  limitState: LimitDetailState,
+) {
+  return () => {
+    copyPreviousLimitDetails(
+      params.month,
+      limitState.previousMonth,
+      params.setLimitState,
+    )
+      .then(() => handlePreviousLimitSuccess(
+        params.onChanged,
+        params.setSnackbarMessage,
+      ))
+      .catch(() => params.setSnackbarMessage(
+        'Belum ada aturan bulan kemarin yang bisa dipakai.',
+      ));
+  };
+}
+
+function handlePreviousLimitSuccess(
+  onChanged: () => void,
+  setSnackbarMessage: (message: string) => void,
+) {
+  setSnackbarMessage('');
+  onChanged();
+}
+
+function getSaveLimitCategoryHandler(params: SaveLimitParams) {
+  return (state: LimitCategoryFormState) => {
+    createLimitCategory(params.month, state)
+      .then(limitState => handleCreateLimitSuccess(params, limitState))
+      .catch(() => params.setSnackbarMessage('Batas kategori belum bisa disimpan.'));
+  };
+}
+
+function getDeleteLimitCategoryHandler(params: SaveLimitParams) {
+  return (budgetId: string) => {
+    params.setLimitState(state => removeLimitDetailItem(state, budgetId));
+    deleteLimitCategory(params.month, budgetId)
+      .then(limitState => handleDeleteLimitSuccess(params, limitState))
+      .catch(() => handleDeleteLimitError(params));
+  };
+}
+
+function removeLimitDetailItem(state: LimitDetailState, budgetId: string) {
+  return {
+    ...state,
+    items: state.items.filter(item => item.id !== budgetId),
+  };
+}
+
+function handleDeleteLimitSuccess(
+  params: SaveLimitParams,
+  limitState: LimitDetailState,
+) {
+  params.setLimitState(limitState);
+  params.setSnackbarMessage('');
+  params.onChanged();
+}
+
+function handleDeleteLimitError(params: SaveLimitParams) {
+  fetchLimitDetails(params.month)
+    .then(params.setLimitState)
+    .catch(() => undefined);
+  params.setSnackbarMessage('Batas kategori belum bisa dihapus.');
+  params.onChanged();
+}
+
+function handleCreateLimitSuccess(
+  params: {
+    onChanged: () => void;
+    setLimitState: (state: LimitDetailState) => void;
+    setSnackbarMessage: (message: string) => void;
+    setView: (view: LimitSheetView) => void;
+  },
+  limitState: LimitDetailState,
+) {
+  params.setLimitState(limitState);
+  params.setSnackbarMessage('');
+  params.setView('list');
+  params.onChanged();
+}
+
+function useLimitDetailRefresh(
+  month: string,
+  visible: boolean,
+  setLimitState: SetLimitState,
+) {
+  useEffect(() => {
+    if (visible) {
+      fetchLimitDetails(month)
+        .then(setLimitState)
+        .catch(() => setLimitState({ items: [] }));
+    }
+  }, [month, visible]);
+}
+
+async function copyPreviousLimitDetails(
+  month: string,
+  previousMonth: BudgetPreviousMonth | undefined,
+  setLimitState: SetLimitState,
+) {
+  const token = await getAuthToken();
+
+  if (!token || !previousMonth?.available) {
+    throw new Error('Previous month unavailable');
   }
 
+  const response = await copyPreviousBudgets(token, {
+    sourceMonth: previousMonth.month,
+    targetMonth: month,
+  });
+  setLimitState(mapBudgetsResponse(response.data));
+}
+
+async function createLimitCategory(
+  month: string,
+  state: LimitCategoryFormState,
+) {
+  const token = await getAuthToken();
+
+  if (!token || !isLimitCategoryFormValid(state)) {
+    throw new Error('Invalid limit category form');
+  }
+
+  await createBudget(token, getCreateBudgetPayload(month, state));
+
+  return fetchLimitDetails(month);
+}
+
+async function deleteLimitCategory(month: string, budgetId: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    throw new Error('Missing auth token');
+  }
+
+  await deleteBudget(token, budgetId);
+
+  return fetchLimitDetails(month);
+}
+
+function isLimitCategoryFormValid(state: LimitCategoryFormState) {
+  return state.name.trim().length >= 2 && parseWalletBalance(state.limitAmount) > 0;
+}
+
+function getCreateBudgetPayload(
+  month: string,
+  state: LimitCategoryFormState,
+): CreateBudgetPayload {
+  const dateRange = getBudgetDateRange(month);
+
+  return {
+    category: {
+      color: '#4EA8DE',
+      icon: 'savings',
+      name: state.name.trim(),
+    },
+    endsAt: dateRange.endsAt,
+    limitAmount: parseWalletBalance(state.limitAmount),
+    period: 'MONTHLY',
+    startsAt: dateRange.startsAt,
+  };
+}
+
+function getBudgetDateRange(month: string) {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const startsAt = new Date(Date.UTC(year, monthNumber - 1, 1));
+  const endsAt = new Date(Date.UTC(year, monthNumber, 0, 23, 59, 59, 999));
+
+  return {
+    endsAt: endsAt.toISOString(),
+    startsAt: startsAt.toISOString(),
+  };
+}
+
+function LimitDetailSheetContent(props: LimitDetailSheetContentProps) {
+  const limitSheet = useLimitDetailState(props);
+
+  return renderLimitDetailSheetView(props, limitSheet);
+}
+
+function renderLimitDetailSheetView(
+  props: LimitDetailSheetContentProps,
+  limitSheet: LimitSheetState,
+) {
+  if (limitSheet.view === 'create') {
+    return <LimitDetailCreateRoute limitSheet={limitSheet} props={props} />;
+  }
+
+  return <LimitDetailListRoute limitSheet={limitSheet} props={props} />;
+}
+
+function LimitDetailCreateRoute(params: {
+  limitSheet: LimitSheetState;
+  props: LimitDetailSheetContentProps;
+}) {
   return (
-    <LimitDetailListView
-      dragHandleProps={props.dragHandleProps}
-      limitItems={limitSheet.limitItems}
-      onCreateCategory={() => limitSheet.setView('create')}
-      onUsePreviousMonth={limitSheet.usePreviousMonth}
+    <LimitCategoryCreateView
+      dragHandleProps={params.props.dragHandleProps}
+      onClose={params.props.onClose}
+      onGoBack={() => params.limitSheet.setView('list')}
+      onSaveCategory={params.limitSheet.saveCategory}
     />
   );
 }
 
-function LimitDetailBottomSheet(props: { onClose: () => void; visible: boolean }) {
+function LimitDetailListRoute(params: {
+  limitSheet: LimitSheetState;
+  props: LimitDetailSheetContentProps;
+}) {
+  return (
+    <LimitDetailListView
+      dragHandleProps={params.props.dragHandleProps}
+      isDeleteMode={params.limitSheet.isDeleteMode}
+      limitItems={params.limitSheet.limitItems}
+      onCreateCategory={() => params.limitSheet.setView('create')}
+      onDeleteBudget={params.limitSheet.deleteCategory}
+      onHideSnackbar={params.limitSheet.hideSnackbar}
+      onToggleDelete={params.limitSheet.toggleDeleteMode}
+      onUsePreviousMonth={params.limitSheet.usePreviousMonth}
+      snackbarMessage={params.limitSheet.snackbarMessage}
+    />
+  );
+}
+
+function LimitDetailBottomSheet(props: {
+  month: string;
+  onChanged: () => void;
+  onClose: () => void;
+  visible: boolean;
+}) {
   return (
     <BottomSheet
       containerStyle={styles.limitDetailContainer}
@@ -1595,7 +2042,10 @@ function LimitDetailBottomSheet(props: { onClose: () => void; visible: boolean }
       {({ dragHandleProps }) => (
         <LimitDetailSheetContent
           dragHandleProps={dragHandleProps}
+          month={props.month}
+          onChanged={props.onChanged}
           onClose={props.onClose}
+          visible={props.visible}
         />
       )}
     </BottomSheet>
@@ -1750,6 +2200,8 @@ function DashboardSheets(props: DashboardSheetsProps) {
   return (
     <>
       <LimitDetailBottomSheet
+        month={props.apiMonth}
+        onChanged={props.onDashboardChanged}
         onClose={props.onCloseLimitDetail}
         visible={props.isLimitDetailVisible}
       />
@@ -1797,15 +2249,29 @@ function DashboardContent(props: DashboardContentProps) {
       }
     >
       <Header onLogout={props.onLogout} user={props.user} />
+      <DashboardBodySections {...props} />
+    </ScrollView>
+  );
+}
+
+function DashboardBodySections(props: DashboardContentProps) {
+  return (
+    <>
       <DashboardBalanceCard {...props} />
-      <SummaryCards onOpenHistory={props.onOpenFullHistory} />
+      <SummaryCards
+        dashboardSummary={props.dashboardSummary}
+        onOpenHistory={props.onOpenFullHistory}
+      />
       <UsageSection
         filterLabel={props.filterLabel}
         onOpenUsagePeriod={props.onOpenUsagePeriod}
       />
-      <SpendingLimitSection onOpenLimitDetail={props.onOpenLimitDetail} />
+      <SpendingLimitSection
+        dashboardSummary={props.dashboardSummary}
+        onOpenLimitDetail={props.onOpenLimitDetail}
+      />
       <HistorySection onOpenFullHistory={props.onOpenFullHistory} />
-    </ScrollView>
+    </>
   );
 }
 
@@ -1946,6 +2412,17 @@ function useUsagePeriodState() {
   };
 }
 
+function getDashboardPeriod(period: ReturnType<typeof useUsagePeriodState>) {
+  const monthIndex = monthOptions.indexOf(
+    period.selectedMonth as (typeof monthOptions)[number],
+  ) + 1;
+
+  return {
+    apiMonth: `${period.selectedYear}-${String(monthIndex).padStart(2, '0')}`,
+    label: `${period.selectedMonth} ${period.selectedYear}`,
+  };
+}
+
 function UsagePeriodOverlay(props: {
   period: ReturnType<typeof useUsagePeriodState>;
   sheets: ReturnType<typeof useDashboardSheetState>;
@@ -1963,14 +2440,14 @@ function UsagePeriodOverlay(props: {
   );
 }
 
-async function fetchDashboardSummary() {
+async function fetchDashboardSummary(month: string) {
   const token = await getAuthToken();
 
   if (!token) {
     return null;
   }
 
-  const response = await getDashboardSummary(token);
+  const response = await getDashboardSummary(token, month);
 
   return response.data;
 }
@@ -2044,19 +2521,19 @@ async function loadWalletItems(setItems: (items: WalletItem[]) => void) {
   }
 }
 
-function useDashboardData() {
+function useDashboardData(month: string) {
   const [dashboardSummary, setDashboardSummary] =
     useState<DashboardSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isRefreshing, setRefreshing] = useState(false);
   const refreshDashboard = () => (
-    loadDashboardData({
+    loadDashboardData(month, {
       setDashboardSummary,
       setErrorMessage,
       setRefreshing,
     })
   );
-  useInitialDashboardRefresh(refreshDashboard);
+  useInitialDashboardRefresh(refreshDashboard, month);
 
   return {
     dashboardSummary,
@@ -2066,17 +2543,20 @@ function useDashboardData() {
   };
 }
 
-function useInitialDashboardRefresh(refreshDashboard: () => Promise<void>) {
+function useInitialDashboardRefresh(
+  refreshDashboard: () => Promise<void>,
+  month: string,
+) {
   useEffect(() => {
     refreshDashboard().catch(() => undefined);
-  }, []);
+  }, [month]);
 }
 
-async function loadDashboardData(setters: DashboardDataSetters) {
+async function loadDashboardData(month: string, setters: DashboardDataSetters) {
   setters.setRefreshing(true);
 
   try {
-    const summary = await fetchDashboardSummary();
+    const summary = await fetchDashboardSummary(month);
     setters.setDashboardSummary(summary);
     setters.setErrorMessage('');
   } catch (error) {
@@ -2126,15 +2606,15 @@ function DashboardMainContent(props: DashboardMainContentProps) {
 }
 
 function DashboardScreen({ onLogout, user }: DashboardScreenProps) {
-  const dashboardData = useDashboardData();
   const sheets = useDashboardSheetState();
   const period = useUsagePeriodState();
-  const filterLabel = `${period.selectedMonth} ${period.selectedYear}`;
+  const dashboardPeriod = getDashboardPeriod(period);
+  const dashboardData = useDashboardData(dashboardPeriod.apiMonth);
 
   return (
     <DashboardScreenShell
       dashboardData={dashboardData}
-      filterLabel={filterLabel}
+      periodFilter={dashboardPeriod}
       onLogout={onLogout}
       period={period}
       sheets={sheets}
@@ -2162,13 +2642,14 @@ function DashboardSuccessShell(props: DashboardScreenShellProps) {
     <View style={styles.container}>
       <DashboardMainContent
         dashboardData={props.dashboardData}
-        filterLabel={props.filterLabel}
+        filterLabel={props.periodFilter.label}
         onLogout={props.onLogout}
         sheets={props.sheets}
         user={props.user}
       />
       <DashboardSheets
         {...props.sheets}
+        apiMonth={props.periodFilter.apiMonth}
         onDashboardChanged={props.dashboardData.refreshDashboard}
         totalWalletAmount={getDashboardTotalAmount(props.dashboardData)}
       />

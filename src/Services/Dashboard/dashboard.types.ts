@@ -5,6 +5,13 @@ type MoneySummary = {
 
 type DashboardSummary = {
   balance: MoneySummary;
+  budgetLimit: {
+    limitAmount: number;
+    percentage: number;
+    usedAmount: number;
+  };
+  expense: MoneySummary;
+  income: MoneySummary;
   selectedWallet: {
     id: string;
     name: string;
