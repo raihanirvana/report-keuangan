@@ -217,6 +217,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
   },
+  chartEmptyText: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   chartRing: {
     alignItems: 'center',
     backgroundColor: '#F1F5F9',

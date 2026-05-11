@@ -7,6 +7,8 @@ import {
   useState,
 } from 'react';
 import {
+  Animated,
+  Easing,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -37,6 +39,7 @@ import {
   type BudgetsResponse,
   type CreateBudgetPayload,
   type CreateWalletPayload,
+  type DashboardChartCategory,
   type DashboardSummary,
   type Transaction,
   type TransactionType,
@@ -45,9 +48,6 @@ import {
 import { colors } from '../../Theme';
 import { getAuthToken } from '../../Utils/authStorage';
 
-import {
-  categories,
-} from './DashboardScreen.data';
 import styles from './DashboardScreen.styles';
 
 type LimitTone = 'blue' | 'primary' | 'purple' | 'yellow';
@@ -190,11 +190,17 @@ type LimitDetailListViewProps = {
 };
 type LimitSheetState = ReturnType<typeof useLimitDetailState>;
 type UsagePeriodContentProps = {
+  monthOptions: string[];
   onApply: () => void;
   selectedMonth: string;
   selectedYear: string;
   setSelectedMonth: (month: string) => void;
   setSelectedYear: (year: string) => void;
+  yearOptions: string[];
+};
+type UsagePeriodBottomSheetProps = UsagePeriodContentProps & {
+  onClose: () => void;
+  visible: boolean;
 };
 type WalletSheetContentProps = {
   dragHandleProps: BottomSheetDragHandleProps;
@@ -225,7 +231,6 @@ const monthOptions = [
   'Nov',
   'Des',
 ] as const;
-const yearOptions = ['2024', '2025', '2026'] as const;
 
 function Header({ onLogout, user }: DashboardScreenProps) {
   return (
@@ -329,34 +334,105 @@ function SummaryCard(props: {
   );
 }
 
-function DonutChart() {
+function DonutChart(props: { chart?: DashboardSummary['chart'] }) {
+  const animation = useChartAnimation(props.chart);
+  const slices = getChartSlices(props.chart?.categories ?? []);
+
   return (
-    <View style={styles.chartRing}>
-      <View style={[styles.ringSegment, styles.ringPrimary]} />
-      <View style={[styles.ringSegment, styles.ringBlue]} />
-      <View style={[styles.ringSegment, styles.ringYellow]} />
-      <View style={[styles.ringSegment, styles.ringPurple]} />
+    <Animated.View style={[styles.chartRing, animation]}>
+      {slices.map(slice => (
+        <View
+          key={slice.id}
+          style={[
+            styles.ringSegment,
+            styles[slice.position],
+            { backgroundColor: slice.color },
+          ]}
+        />
+      ))}
       <View style={styles.chartCenter}>
         <Text style={styles.chartCenterLabel}>KELUAR</Text>
-        <Text style={styles.chartCenterValue}>850K</Text>
+        <Text style={styles.chartCenterValue}>
+          {formatCompactRupiah(props.chart?.expenseTotal ?? 0)}
+        </Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
-function CategoryBreakdown() {
+function CategoryBreakdown(props: { categories: DashboardChartCategory[] }) {
+  if (!props.categories.length) {
+    return <Text style={styles.chartEmptyText}>Belum ada pengeluaran.</Text>;
+  }
+
   return (
     <View style={styles.categoryList}>
-      {categories.map(category => (
-        <View key={category.label} style={styles.categoryItem}>
+      {props.categories.map(category => (
+        <View key={category.categoryId} style={styles.categoryItem}>
           <View
             style={[styles.categoryDot, { backgroundColor: category.color }]}
           />
-          <Text style={styles.categoryLabel}>{category.label}</Text>
+          <Text style={styles.categoryLabel}>
+            {category.name} {formatLimitPercentage(category.percentage)}
+          </Text>
         </View>
       ))}
     </View>
   );
+}
+
+function useChartAnimation(chart?: DashboardSummary['chart']) {
+  const [progress] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    progress.setValue(0);
+    Animated.timing(progress, getChartAnimationConfig()).start();
+  }, [chart?.expenseTotal, chart?.categories.length, progress]);
+
+  return getChartAnimatedStyle(progress);
+}
+
+function getChartAnimationConfig() {
+  return {
+    duration: 850,
+    easing: Easing.out(Easing.cubic),
+    toValue: 1,
+    useNativeDriver: true,
+  };
+}
+
+function getChartAnimatedStyle(progress: Animated.Value) {
+  return {
+    opacity: progress,
+    transform: [
+      { scale: progress.interpolate(getScaleInterpolation()) },
+      { rotate: progress.interpolate(getRotateInterpolation()) },
+    ],
+  };
+}
+
+function getScaleInterpolation() {
+  return {
+    inputRange: [0, 1],
+    outputRange: [0.86, 1],
+  };
+}
+
+function getRotateInterpolation() {
+  return {
+    inputRange: [0, 1],
+    outputRange: ['-18deg', '0deg'],
+  };
+}
+
+function getChartSlices(categories: DashboardChartCategory[]) {
+  const positions = ['ringPrimary', 'ringBlue', 'ringYellow', 'ringPurple'] as const;
+
+  return positions.map((position, index) => ({
+    color: categories[index]?.color ?? '#F1F5F9',
+    id: categories[index]?.categoryId ?? position,
+    position,
+  }));
 }
 
 function UsageSectionHeader(props: {
@@ -374,15 +450,18 @@ function UsageSectionHeader(props: {
 }
 
 function UsageSection(props: {
+  dashboardSummary: DashboardSummary | null;
   filterLabel: string;
   onOpenUsagePeriod: () => void;
 }) {
+  const chart = props.dashboardSummary?.chart;
+
   return (
     <View style={styles.section}>
       <UsageSectionHeader {...props} />
       <View style={styles.chartCard}>
-        <DonutChart />
-        <CategoryBreakdown />
+        <DonutChart chart={chart} />
+        <CategoryBreakdown categories={chart?.categories ?? []} />
       </View>
     </View>
   );
@@ -456,6 +535,14 @@ function formatLimitPercentage(value: number) {
 
 function formatRupiah(value: number) {
   return `Rp ${value.toLocaleString('id-ID')}`;
+}
+
+function formatCompactRupiah(value: number) {
+  if (value >= 1000) {
+    return `Rp ${Number(value / 1000).toLocaleString('id-ID')}k`;
+  }
+
+  return formatRupiah(value);
 }
 
 function HistorySection(props: {
@@ -2230,13 +2317,13 @@ function UsagePeriodContent(props: UsagePeriodContentProps) {
     <View style={styles.periodContent}>
       <PeriodGroup
         onSelectOption={props.setSelectedMonth}
-        options={monthOptions}
+        options={props.monthOptions}
         selectedOption={props.selectedMonth}
         title="Bulan"
       />
       <PeriodGroup
         onSelectOption={props.setSelectedYear}
-        options={yearOptions}
+        options={props.yearOptions}
         selectedOption={props.selectedYear}
         title="Tahun"
       />
@@ -2264,15 +2351,7 @@ function UsagePeriodSheetBody(props: {
   );
 }
 
-function UsagePeriodBottomSheet(props: {
-  onApply: () => void;
-  onClose: () => void;
-  selectedMonth: string;
-  selectedYear: string;
-  setSelectedMonth: (month: string) => void;
-  setSelectedYear: (year: string) => void;
-  visible: boolean;
-}) {
+function UsagePeriodBottomSheet(props: UsagePeriodBottomSheetProps) {
   return (
     <BottomSheet
       containerStyle={styles.periodSheetContainer}
@@ -2384,6 +2463,7 @@ function DashboardBodySections(props: DashboardContentProps) {
         onOpenHistory={props.onOpenFullHistory}
       />
       <UsageSection
+        dashboardSummary={props.dashboardSummary}
         filterLabel={props.filterLabel}
         onOpenUsagePeriod={props.onOpenUsagePeriod}
       />
@@ -2525,8 +2605,11 @@ function useDashboardSheetActions(params: {
 }
 
 function useUsagePeriodState() {
-  const [selectedMonth, setSelectedMonth] = useState('Mei');
-  const [selectedYear, setSelectedYear] = useState('2024');
+  const currentMonth = getCurrentApiMonth();
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    getMonthLabel(currentMonth),
+  );
+  const [selectedYear, setSelectedYear] = useState(getYearLabel(currentMonth));
 
   return {
     selectedMonth,
@@ -2537,9 +2620,7 @@ function useUsagePeriodState() {
 }
 
 function getDashboardPeriod(period: ReturnType<typeof useUsagePeriodState>) {
-  const monthIndex = monthOptions.indexOf(
-    period.selectedMonth as (typeof monthOptions)[number],
-  ) + 1;
+  const monthIndex = getMonthNumber(period.selectedMonth);
 
   return {
     apiMonth: `${period.selectedYear}-${String(monthIndex).padStart(2, '0')}`,
@@ -2548,20 +2629,111 @@ function getDashboardPeriod(period: ReturnType<typeof useUsagePeriodState>) {
 }
 
 function UsagePeriodOverlay(props: {
+  availablePeriod?: DashboardSummary['availablePeriod'];
   period: ReturnType<typeof useUsagePeriodState>;
   sheets: ReturnType<typeof useDashboardSheetState>;
 }) {
+  const options = getPeriodOptions(
+    props.availablePeriod,
+    props.period.selectedYear,
+  );
+  const selectYear = getSelectPeriodYearHandler(props.period, options);
+
   return (
     <UsagePeriodBottomSheet
+      monthOptions={options.monthOptions}
       onApply={props.sheets.onCloseUsagePeriod}
       onClose={props.sheets.onCloseUsagePeriod}
       selectedMonth={props.period.selectedMonth}
       selectedYear={props.period.selectedYear}
       setSelectedMonth={props.period.setSelectedMonth}
-      setSelectedYear={props.period.setSelectedYear}
+      setSelectedYear={selectYear}
       visible={props.sheets.isUsagePeriodVisible}
+      yearOptions={options.yearOptions}
     />
   );
+}
+
+function getSelectPeriodYearHandler(
+  period: ReturnType<typeof useUsagePeriodState>,
+  options: ReturnType<typeof getPeriodOptions>,
+) {
+  return (year: string) => {
+    const monthOptionsForYear = getAvailableMonthOptions(options.range, year);
+    period.setSelectedYear(year);
+
+    if (!monthOptionsForYear.some(month => month === period.selectedMonth)) {
+      period.setSelectedMonth(monthOptionsForYear[0] ?? monthOptions[0]);
+    }
+  };
+}
+
+function getCurrentApiMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function getMonthLabel(apiMonth: string) {
+  const monthIndex = Number(apiMonth.slice(5, 7)) - 1;
+
+  return monthOptions[monthIndex] ?? monthOptions[0];
+}
+
+function getYearLabel(apiMonth: string) {
+  return apiMonth.slice(0, 4);
+}
+
+function getMonthNumber(monthLabel: string) {
+  return monthOptions.indexOf(
+    monthLabel as (typeof monthOptions)[number],
+  ) + 1;
+}
+
+function getPeriodOptions(
+  availablePeriod: DashboardSummary['availablePeriod'] | undefined,
+  selectedYear: string,
+) {
+  const range = getAvailablePeriodRange(availablePeriod);
+
+  return {
+    monthOptions: getAvailableMonthOptions(range, selectedYear),
+    range,
+    yearOptions: getAvailableYearOptions(range),
+  };
+}
+
+function getAvailablePeriodRange(
+  availablePeriod: DashboardSummary['availablePeriod'] | undefined,
+) {
+  const fallback = getCurrentApiMonth();
+
+  return {
+    maxMonth: availablePeriod?.maxMonth ?? fallback,
+    minMonth: availablePeriod?.minMonth ?? fallback,
+  };
+}
+
+function getAvailableYearOptions(range: {
+  maxMonth: string;
+  minMonth: string;
+}) {
+  const minYear = Number(range.minMonth.slice(0, 4));
+  const maxYear = Number(range.maxMonth.slice(0, 4));
+
+  return Array.from(
+    { length: Math.max(maxYear - minYear + 1, 1) },
+    (_, index) => String(minYear + index),
+  );
+}
+
+function getAvailableMonthOptions(
+  range: { maxMonth: string; minMonth: string },
+  selectedYear: string,
+) {
+  return monthOptions.filter((monthLabel, index) => {
+    const apiMonth = `${selectedYear}-${String(index + 1).padStart(2, '0')}`;
+
+    return apiMonth >= range.minMonth && apiMonth <= range.maxMonth;
+  });
 }
 
 async function fetchDashboardSummary(month: string) {
@@ -2923,7 +3095,11 @@ function DashboardSuccessShell(props: DashboardScreenShellProps) {
         totalWalletAmount={getDashboardTotalAmount(props.dashboardData)}
         usagePeriodLabel={props.periodFilter.label}
       />
-      <UsagePeriodOverlay period={props.period} sheets={props.sheets} />
+      <UsagePeriodOverlay
+        availablePeriod={props.dashboardData.dashboardSummary?.availablePeriod}
+        period={props.period}
+        sheets={props.sheets}
+      />
     </View>
   );
 }
