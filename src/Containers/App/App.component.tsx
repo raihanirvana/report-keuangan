@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { StatusBar } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StatusBar,
+  Text,
+  View,
+} from 'react-native';
 import {
   type Edge,
   SafeAreaProvider,
@@ -7,7 +13,11 @@ import {
 } from 'react-native-safe-area-context';
 
 import { DashboardScreen, LoginScreen, SplashScreen } from '../../Screens';
-import { getMe, type AuthUser } from '../../Services';
+import {
+  getMe,
+  setSessionExpiredHandler,
+  type AuthUser,
+} from '../../Services';
 import {
   clearAuthToken,
   getAuthToken,
@@ -32,6 +42,11 @@ type AppContentProps = {
   user: AuthUser | null;
 };
 
+type SessionExpiredModalProps = {
+  onConfirm: () => void;
+  visible: boolean;
+};
+
 type AuthSetters = {
   setLoggedIn: (value: boolean) => void;
   setSplashVisible: (value: boolean) => void;
@@ -48,6 +63,24 @@ function AppContent(props: AppContentProps) {
   }
 
   return <DashboardScreen onLogout={props.onLogout} user={props.user} />;
+}
+
+function SessionExpiredModal(props: SessionExpiredModalProps) {
+  return (
+    <Modal transparent visible={props.visible}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Sesi sudah habis</Text>
+          <Text style={styles.modalText}>
+            Silakan masuk lagi supaya data keuanganmu tetap aman.
+          </Text>
+          <Pressable onPress={props.onConfirm} style={styles.modalButton}>
+            <Text style={styles.modalButtonText}>Login Ulang</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 async function getBootstrapUser(token: string, storedUser: AuthUser | null) {
@@ -145,6 +178,33 @@ function useAuthBootstrap() {
 
 type AuthBootstrap = ReturnType<typeof useAuthBootstrap>;
 
+function useSessionExpiredHandler(auth: AuthBootstrap) {
+  const [isSessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    setSessionExpiredHandler(() => setSessionExpired(true));
+
+    return () => setSessionExpiredHandler(null);
+  }, []);
+
+  return {
+    isSessionExpired,
+    onConfirmSessionExpired: createSessionExpiredConfirm(auth, setSessionExpired),
+  };
+}
+
+function createSessionExpiredConfirm(
+  auth: AuthBootstrap,
+  setSessionExpired: (value: boolean) => void,
+) {
+  return async () => {
+    await clearAuthToken();
+    setSessionExpired(false);
+    auth.setLoggedIn(false);
+    auth.setUser(null);
+  };
+}
+
 function createLogoutHandler(auth: AuthBootstrap) {
   return async () => {
     await clearAuthToken();
@@ -160,24 +220,37 @@ function createLoginHandler(auth: AuthBootstrap) {
   };
 }
 
-function AppShell({ auth }: { auth: AuthBootstrap }) {
-  const safeAreaStyle = getSafeAreaStyle(
-    auth.isSplashVisible,
-    auth.isLoggedIn,
+function AppSafeContent(props: {
+  auth: AuthBootstrap;
+  safeAreaStyle: ReturnType<typeof getSafeAreaStyle>;
+}) {
+  return (
+    <SafeAreaView edges={safeAreaEdges} style={props.safeAreaStyle}>
+      <AppContent
+        isLoggedIn={props.auth.isLoggedIn}
+        isSplashVisible={props.auth.isSplashVisible}
+        onLogin={createLoginHandler(props.auth)}
+        onLogout={createLogoutHandler(props.auth)}
+        user={props.auth.user}
+      />
+    </SafeAreaView>
   );
+}
+
+function AppShell({ auth }: { auth: AuthBootstrap }) {
+  const session = useSessionExpiredHandler(auth);
 
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
-      <SafeAreaView edges={safeAreaEdges} style={safeAreaStyle}>
-        <AppContent
-          isLoggedIn={auth.isLoggedIn}
-          isSplashVisible={auth.isSplashVisible}
-          onLogin={createLoginHandler(auth)}
-          onLogout={createLogoutHandler(auth)}
-          user={auth.user}
-        />
-      </SafeAreaView>
+      <AppSafeContent
+        auth={auth}
+        safeAreaStyle={getSafeAreaStyle(auth.isSplashVisible, auth.isLoggedIn)}
+      />
+      <SessionExpiredModal
+        onConfirm={session.onConfirmSessionExpired}
+        visible={session.isSessionExpired}
+      />
     </SafeAreaProvider>
   );
 }

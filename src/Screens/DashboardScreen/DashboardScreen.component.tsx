@@ -1,6 +1,12 @@
-import { type ComponentProps, type ReactNode, useState } from 'react';
+import {
+  type ComponentProps,
+  type ReactNode,
+  useEffect,
+  useState,
+} from 'react';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -12,18 +18,28 @@ import {
   type BottomSheetDragHandleProps,
 } from '../../Components/BottomSheet';
 import AddTransactionSheet from '../../Navigation/AppTabs/AddTransactionSheet.component';
-import type { AuthUser } from '../../Services';
+import {
+  createWallet,
+  deleteWallet,
+  getDashboardSummary,
+  getWallets,
+  type AuthUser,
+  type CreateWalletPayload,
+  type DashboardSummary,
+  type Wallet,
+} from '../../Services';
 import { colors } from '../../Theme';
+import { getAuthToken } from '../../Utils/authStorage';
 
 import {
   categories,
   fullHistoryGroups,
   histories,
-  wallets,
 } from './DashboardScreen.data';
 import styles from './DashboardScreen.styles';
 
 type LimitTone = 'blue' | 'primary' | 'purple' | 'yellow';
+type WalletTone = 'blue' | 'primary' | 'purple' | 'yellow';
 type LimitDetail = {
   icon: string;
   label: string;
@@ -75,22 +91,62 @@ type DashboardSheetsProps = {
   isAddSheetVisible: boolean;
   isLimitDetailVisible: boolean;
   isWalletSheetVisible: boolean;
+  onDashboardChanged: () => void;
   onCloseAddSheet: () => void;
   onCloseFullHistory: () => void;
   onCloseLimitDetail: () => void;
   onCloseWalletSheet: () => void;
   onSelectHistoryFilter: (filter: HistoryFilter) => void;
   selectedHistoryFilter: HistoryFilter;
+  totalWalletAmount: string;
+};
+type DashboardContentProps = {
+  dashboardSummary: DashboardSummary | null;
+  filterLabel: string;
+  isRefreshing: boolean;
+  onOpenFullHistory: (filter?: HistoryFilter) => void;
+  onOpenLimitDetail: () => void;
+  onOpenUsagePeriod: () => void;
+  onOpenWalletSheet: () => void;
+  onRefresh: () => void;
+  onLogout?: () => void;
+  user?: AuthUser | null;
+};
+type DashboardMainContentProps = {
+  dashboardData: ReturnType<typeof useDashboardData>;
+  filterLabel: string;
+  onLogout?: () => void;
+  sheets: ReturnType<typeof useDashboardSheetState>;
+  user?: AuthUser | null;
 };
 type DashboardScreenProps = {
   onLogout?: () => void;
   user?: AuthUser | null;
 };
+type DashboardScreenShellProps = {
+  dashboardData: ReturnType<typeof useDashboardData>;
+  filterLabel: string;
+  onLogout?: () => void;
+  period: ReturnType<typeof useUsagePeriodState>;
+  sheets: ReturnType<typeof useDashboardSheetState>;
+  user?: AuthUser | null;
+};
 type LimitSheetView = 'create' | 'list';
 type HistoryFilter = 'Pemasukan' | 'Pengeluaran' | 'Pindah Dana' | 'Semua';
 type WalletType = (typeof walletTypes)[number];
-type WalletItem = (typeof wallets)[number];
+type WalletItem = {
+  amount: string;
+  icon: string;
+  id: string;
+  name: string;
+  tone: WalletTone;
+};
 type WalletSheetView = 'create' | 'list';
+type DashboardDataSetters = {
+  setDashboardSummary: (summary: DashboardSummary | null) => void;
+  setErrorMessage: (message: string) => void;
+  setRefreshing: (value: boolean) => void;
+};
 type LimitDetailSheetContentProps = {
   dragHandleProps: BottomSheetDragHandleProps;
   onClose: () => void;
@@ -101,6 +157,20 @@ type UsagePeriodContentProps = {
   selectedYear: string;
   setSelectedMonth: (month: string) => void;
   setSelectedYear: (year: string) => void;
+};
+type WalletSheetContentProps = {
+  dragHandleProps: BottomSheetDragHandleProps;
+  onChanged: () => void;
+  onClose: () => void;
+  onDeleteWallet: (walletId: string) => void;
+  totalAmount: string;
+  walletItems: WalletItem[];
+};
+type WalletBottomSheetProps = {
+  onChanged: () => void;
+  onClose: () => void;
+  totalAmount: string;
+  visible: boolean;
 };
 const walletTypes = ['Bank', 'E-Wallet', 'Cash', 'Savings'];
 const monthOptions = [
@@ -143,17 +213,21 @@ function Header({ onLogout, user }: DashboardScreenProps) {
   );
 }
 
-function BalanceCard({ onOpenWalletSheet }: { onOpenWalletSheet: () => void }) {
+function BalanceCard(props: {
+  balanceFormatted: string;
+  onOpenWalletSheet: () => void;
+  selectedWalletName: string;
+}) {
   return (
     <View style={styles.balanceCard}>
       <Text style={styles.balancePattern}>· · ·</Text>
       <View style={styles.balanceHeader}>
         <Text style={styles.balanceLabel}>SISA UANG JAJAN KAMU</Text>
-        <Pressable onPress={onOpenWalletSheet} style={styles.balanceBadge}>
-          <Text style={styles.balanceBadgeText}>Total Asset Saya</Text>
+        <Pressable onPress={props.onOpenWalletSheet} style={styles.balanceBadge}>
+          <Text style={styles.balanceBadgeText}>{props.selectedWalletName}</Text>
         </Pressable>
       </View>
-      <Text style={styles.balanceValue}>Rp 5.250.000</Text>
+      <Text style={styles.balanceValue}>{props.balanceFormatted}</Text>
       <Text style={styles.balanceNote}>Semangat menabung! ✨</Text>
     </View>
   );
@@ -573,7 +647,7 @@ function FullHistoryBottomSheet(props: {
   );
 }
 
-function TotalWalletOption() {
+function TotalWalletOption(props: { amount: string }) {
   return (
     <Pressable style={styles.totalWalletOption}>
       <View style={styles.totalWalletIcon}>
@@ -583,7 +657,7 @@ function TotalWalletOption() {
         <Text style={styles.totalWalletTitle}>Semua Dompet</Text>
         <Text style={styles.totalWalletSubtitle}>Lihat total keseluruhan</Text>
       </View>
-      <Text style={styles.totalWalletAmount}>Rp 8.420k</Text>
+      <Text style={styles.totalWalletAmount}>{props.amount}</Text>
     </Pressable>
   );
 }
@@ -757,20 +831,20 @@ function WalletListContent(props: {
   isDeleteMode: boolean;
   onCreateWallet: () => void;
   onDeleteWallet: (walletId: string) => void;
+  totalAmount: string;
   walletItems: WalletItem[];
 }) {
   return (
     <>
-      {!!props.walletItems.length && <TotalWalletOption />}
+      {!!props.walletItems.length && (
+        <TotalWalletOption amount={props.totalAmount} />
+      )}
       <WalletGrid
         isDeleteMode={props.isDeleteMode}
         onDeleteWallet={props.onDeleteWallet}
         walletItems={props.walletItems}
       />
       <AddWalletButton onPress={props.onCreateWallet} />
-      <Pressable style={styles.confirmButton}>
-        <Text style={styles.confirmButtonText}>Konfirmasi Pilihan</Text>
-      </Pressable>
     </>
   );
 }
@@ -818,36 +892,245 @@ function WalletTypeOptions(props: {
   );
 }
 
-function WalletFormField(props: { label: string; placeholder: string }) {
+function WalletFormField(props: {
+  keyboardType?: 'default' | 'number-pad';
+  label: string;
+  onChangeText?: (value: string) => void;
+  onFocus?: () => void;
+  placeholder: string;
+  value?: string;
+}) {
   return (
     <View style={styles.walletFormField}>
       <Text style={styles.walletFormLabel}>{props.label}</Text>
       <TextInput
+        keyboardType={props.keyboardType}
+        onChangeText={props.onChangeText}
+        onFocus={props.onFocus}
         placeholder={props.placeholder}
         placeholderTextColor="#94A3B8"
         style={styles.walletFormInput}
+        value={props.value}
       />
     </View>
   );
 }
 
-function WalletCreateContent() {
+function getWalletTypePayload(type: WalletType): Pick<CreateWalletPayload, 'color' | 'icon' | 'type'> {
+  if (type === 'E-Wallet') {
+    return { color: '#EE2B6C', icon: 'qr_code_2', type: 'EWALLET' };
+  }
+
+  if (type === 'Cash') {
+    return { color: '#FBCF33', icon: 'payments', type: 'CASH' };
+  }
+
+  if (type === 'Savings') {
+    return { color: '#A29BFE', icon: 'savings', type: 'SAVINGS' };
+  }
+
+  return { color: '#4EA8DE', icon: 'account_balance', type: 'BANK' };
+}
+
+function getWalletBalanceDigits(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+function formatWalletBalanceInput(value: string) {
+  const digits = getWalletBalanceDigits(value);
+
+  if (!digits) {
+    return '';
+  }
+
+  return `Rp ${Number(digits).toLocaleString('id-ID')}`;
+}
+
+function parseWalletBalance(value: string) {
+  const amount = Number(getWalletBalanceDigits(value));
+
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function getWalletSubmitPayload(params: {
+  balance: string;
+  name: string;
+  selectedType: WalletType;
+}) {
+  return {
+    ...getWalletTypePayload(params.selectedType),
+    initialBalance: parseWalletBalance(params.balance),
+    name: params.name.trim(),
+  };
+}
+
+function isWalletFormValid(params: {
+  name: string;
+  setErrorMessage: (message: string) => void;
+  token: string | null;
+}) {
+  const isValid = !!params.token && params.name.trim().length >= 2;
+
+  if (!isValid) {
+    params.setErrorMessage('Nama dompet minimal 2 karakter.');
+  }
+
+  return isValid;
+}
+
+async function submitWalletForm(params: {
+  balance: string;
+  name: string;
+  onChanged: () => void;
+  onSuccess: () => void;
+  selectedType: WalletType;
+  setErrorMessage: (message: string) => void;
+}) {
+  const token = await getAuthToken();
+
+  if (!isWalletFormValid({ ...params, token }) || !token) {
+    return;
+  }
+
+  try {
+    await createWallet(token, getWalletSubmitPayload(params));
+    params.onChanged();
+    params.onSuccess();
+  } catch (error) {
+    params.setErrorMessage(
+      error instanceof Error ? error.message : 'Gagal menyimpan dompet.',
+    );
+  }
+}
+
+async function handleDeleteWallet(walletId: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return;
+  }
+
+  await deleteWallet(token, walletId);
+}
+
+type WalletFormState = {
+  balance: string;
+  errorMessage: string;
+  focusBalance: () => void;
+  name: string;
+  selectedType: WalletType;
+  setBalance: (value: string) => void;
+  setErrorMessage: (message: string) => void;
+  setName: (value: string) => void;
+  setSelectedType: (type: WalletType) => void;
+};
+
+function WalletFormFields({ state }: { state: WalletFormState }) {
+  return (
+    <>
+      <WalletFormField
+        label="Nama Dompet"
+        onChangeText={state.setName}
+        placeholder="BCA Saya"
+        value={state.name}
+      />
+      <WalletTypeField state={state} />
+      <WalletFormField
+        keyboardType="number-pad"
+        label="Saldo Awal"
+        onChangeText={state.setBalance}
+        onFocus={state.focusBalance}
+        placeholder="Rp 0"
+        value={state.balance}
+      />
+    </>
+  );
+}
+
+function WalletTypeField({ state }: { state: WalletFormState }) {
+  return (
+    <View style={styles.walletFormField}>
+      <Text style={styles.walletFormLabel}>Tipe Dompet</Text>
+      <WalletTypeOptions
+        onSelectType={state.setSelectedType}
+        selectedType={state.selectedType}
+      />
+    </View>
+  );
+}
+
+function getWalletSubmitParams(props: {
+  onChanged: () => void;
+  onSuccess: () => void;
+  state: WalletFormState;
+}) {
+  return {
+    balance: props.state.balance,
+    name: props.state.name,
+    onChanged: props.onChanged,
+    onSuccess: props.onSuccess,
+    selectedType: props.state.selectedType,
+    setErrorMessage: props.state.setErrorMessage,
+  };
+}
+
+function WalletSaveButton(props: {
+  onChanged: () => void;
+  onSuccess: () => void;
+  state: WalletFormState;
+}) {
+  return (
+    <>
+      {!!props.state.errorMessage && (
+        <Text style={styles.walletFormError}>{props.state.errorMessage}</Text>
+      )}
+      <Pressable
+        onPress={async () => {
+          await submitWalletForm(getWalletSubmitParams(props));
+        }}
+        style={styles.saveWalletButton}
+      >
+        <Text style={styles.saveWalletButtonText}>Simpan Dompet</Text>
+      </Pressable>
+    </>
+  );
+}
+
+function useWalletFormState(): WalletFormState {
+  const [balance, setBalance] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [name, setName] = useState('');
   const [selectedType, setSelectedType] = useState<WalletType>('Bank');
+  const setFormattedBalance = (value: string) => {
+    setBalance(formatWalletBalanceInput(value));
+  };
+  const focusBalance = () => {
+    setBalance(value => value || 'Rp ');
+  };
+
+  return {
+    balance,
+    errorMessage,
+    focusBalance,
+    name,
+    selectedType,
+    setBalance: setFormattedBalance,
+    setErrorMessage,
+    setName,
+    setSelectedType,
+  };
+}
+
+function WalletCreateContent(props: {
+  onChanged: () => void;
+  onSuccess: () => void;
+}) {
+  const state = useWalletFormState();
 
   return (
     <View style={styles.walletForm}>
-      <WalletFormField label="Nama Dompet" placeholder="BCA Saya" />
-      <View style={styles.walletFormField}>
-        <Text style={styles.walletFormLabel}>Tipe Dompet</Text>
-        <WalletTypeOptions
-          onSelectType={setSelectedType}
-          selectedType={selectedType}
-        />
-      </View>
-      <WalletFormField label="Saldo Awal" placeholder="Rp 0" />
-      <Pressable style={styles.saveWalletButton}>
-        <Text style={styles.saveWalletButtonText}>Simpan Dompet</Text>
-      </Pressable>
+      <WalletFormFields state={state} />
+      <WalletSaveButton {...props} state={state} />
     </View>
   );
 }
@@ -855,18 +1138,12 @@ function WalletCreateContent() {
 function useWalletSheetState() {
   const [isDeleteMode, setDeleteMode] = useState(false);
   const [view, setView] = useState<WalletSheetView>('list');
-  const [walletItems, setWalletItems] = useState<WalletItem[]>([wallets[0]]);
-  const deleteWallet = (walletId: string) => {
-    setWalletItems(items => items.filter(item => item.id !== walletId));
-  };
 
   return {
-    deleteWallet,
     isDeleteMode,
     setDeleteMode,
     setView,
     view,
-    walletItems,
   };
 }
 
@@ -893,6 +1170,7 @@ function WalletSheetBody(props: {
   isDeleteMode: boolean;
   onCreateWallet: () => void;
   onDeleteWallet: (walletId: string) => void;
+  totalAmount: string;
   walletItems: WalletItem[];
 }) {
   return (
@@ -900,6 +1178,7 @@ function WalletSheetBody(props: {
       isDeleteMode={props.isDeleteMode}
       onCreateWallet={props.onCreateWallet}
       onDeleteWallet={props.onDeleteWallet}
+      totalAmount={props.totalAmount}
       walletItems={props.walletItems}
     />
   );
@@ -910,6 +1189,7 @@ function WalletSheetHeader(props: {
   isCreateView: boolean;
   onClose: () => void;
   walletSheet: ReturnType<typeof useWalletSheetState>;
+  walletItems: WalletItem[];
 }) {
   return (
     <SheetHeader
@@ -917,7 +1197,7 @@ function WalletSheetHeader(props: {
         isCreateView={props.isCreateView}
         isDeleteMode={props.walletSheet.isDeleteMode}
         onToggleDelete={() => props.walletSheet.setDeleteMode(value => !value)}
-        walletItems={props.walletSheet.walletItems}
+        walletItems={props.walletItems}
       />}
       canGoBack={props.isCreateView}
       dragHandleProps={props.dragHandleProps}
@@ -930,60 +1210,158 @@ function WalletSheetHeader(props: {
 
 function WalletSheetCurrentContent(props: {
   isCreateView: boolean;
+  onChanged: () => void;
+  onDeleteWallet: (walletId: string) => void;
+  totalAmount: string;
+  walletItems: WalletItem[];
   walletSheet: ReturnType<typeof useWalletSheetState>;
 }) {
   if (props.isCreateView) {
-    return <WalletCreateContent />;
+    return <WalletSheetCreateContent {...props} />;
   }
 
+  return <WalletSheetListContent {...props} />;
+}
+
+function WalletSheetCreateContent(props: {
+  onChanged: () => void;
+  walletSheet: ReturnType<typeof useWalletSheetState>;
+}) {
   return (
-    <WalletSheetBody
-      isDeleteMode={props.walletSheet.isDeleteMode}
-      onCreateWallet={() => props.walletSheet.setView('create')}
-      onDeleteWallet={props.walletSheet.deleteWallet}
-      walletItems={props.walletSheet.walletItems}
+    <WalletCreateContent
+      onChanged={props.onChanged}
+      onSuccess={() => props.walletSheet.setView('list')}
     />
   );
 }
 
-function SheetContent(props: {
+function WalletSheetListContent(props: {
+  onChanged: () => void;
+  onDeleteWallet: (walletId: string) => void;
+  totalAmount: string;
+  walletItems: WalletItem[];
+  walletSheet: ReturnType<typeof useWalletSheetState>;
+}) {
+  return (
+    <WalletSheetBody
+      isDeleteMode={props.walletSheet.isDeleteMode}
+      onCreateWallet={() => props.walletSheet.setView('create')}
+      onDeleteWallet={props.onDeleteWallet}
+      totalAmount={props.totalAmount}
+      walletItems={props.walletItems}
+    />
+  );
+}
+
+function WalletSheetHeaderContent(props: {
   dragHandleProps: BottomSheetDragHandleProps;
   onClose: () => void;
+  isCreateView: boolean;
+  walletItems: WalletItem[];
+  walletSheet: ReturnType<typeof useWalletSheetState>;
 }) {
+  return (
+    <WalletSheetHeader
+      dragHandleProps={props.dragHandleProps}
+      isCreateView={props.isCreateView}
+      onClose={props.onClose}
+      walletItems={props.walletItems}
+      walletSheet={props.walletSheet}
+    />
+  );
+}
+
+function SheetContent(props: WalletSheetContentProps) {
   const walletSheet = useWalletSheetState();
   const isCreateView = walletSheet.view === 'create';
 
   return (
     <>
-      <WalletSheetHeader
+      <WalletSheetHeaderContent
         dragHandleProps={props.dragHandleProps}
         isCreateView={isCreateView}
         onClose={props.onClose}
+        walletItems={props.walletItems}
         walletSheet={walletSheet}
       />
       <WalletSheetCurrentContent
         isCreateView={isCreateView}
+        onChanged={props.onChanged}
+        onDeleteWallet={props.onDeleteWallet}
+        totalAmount={props.totalAmount}
+        walletItems={props.walletItems}
         walletSheet={walletSheet}
       />
     </>
   );
 }
 
-function WalletBottomSheet(props: { onClose: () => void; visible: boolean }) {
+function WalletBottomSheet(props: WalletBottomSheetProps) {
+  const renderContent = useWalletBottomSheetContent(props);
+
   return (
     <BottomSheet
       containerStyle={styles.sheetContainer}
       onClose={props.onClose}
       visible={props.visible}
     >
-      {({ dragHandleProps }) => (
-        <SheetContent
-          dragHandleProps={dragHandleProps}
-          onClose={props.onClose}
-        />
-      )}
+      {renderContent}
     </BottomSheet>
   );
+}
+
+function useWalletBottomSheetContent(props: WalletBottomSheetProps) {
+  const [refreshKey, setRefreshKey] = useState(0);
+  const walletItems = useWalletItems(props.visible, refreshKey);
+  const handleChanged = getWalletChangedHandler(setRefreshKey, props.onChanged);
+  const handleDelete = getWalletDeleteHandler(walletItems.remove, handleChanged);
+
+  return getWalletContentRenderer(
+    props,
+    walletItems.items,
+    handleChanged,
+    handleDelete,
+  );
+}
+
+function getWalletContentRenderer(
+  props: { onClose: () => void; totalAmount: string },
+  walletItems: WalletItem[],
+  onChanged: () => void,
+  onDeleteWallet: (walletId: string) => void,
+) {
+  return ({ dragHandleProps }: { dragHandleProps: BottomSheetDragHandleProps }) => (
+    <SheetContent
+      dragHandleProps={dragHandleProps}
+      onChanged={onChanged}
+      onClose={props.onClose}
+      onDeleteWallet={onDeleteWallet}
+      totalAmount={props.totalAmount}
+      walletItems={walletItems}
+    />
+  );
+}
+
+function getWalletDeleteHandler(
+  removeWallet: (walletId: string) => void,
+  onChanged: () => void,
+) {
+  return (walletId: string) => {
+    removeWallet(walletId);
+    handleDeleteWallet(walletId)
+      .then(onChanged)
+      .catch(onChanged);
+  };
+}
+
+function getWalletChangedHandler(
+  setRefreshKey: (setter: (value: number) => number) => void,
+  onChanged: () => void,
+) {
+  return () => {
+    setRefreshKey(value => value + 1);
+    onChanged();
+  };
 }
 
 function getLimitDetailStyles(tone: LimitTone) {
@@ -1382,7 +1760,9 @@ function DashboardSheets(props: DashboardSheetsProps) {
         visible={props.isFullHistoryVisible}
       />
       <WalletBottomSheet
+        onChanged={props.onDashboardChanged}
         onClose={props.onCloseWalletSheet}
+        totalAmount={props.totalWalletAmount}
         visible={props.isWalletSheetVisible}
       />
       <AddSheetOverlay {...props} />
@@ -1390,19 +1770,34 @@ function DashboardSheets(props: DashboardSheetsProps) {
   );
 }
 
-function DashboardContent(props: {
-  filterLabel: string;
-  onOpenFullHistory: (filter?: HistoryFilter) => void;
-  onOpenLimitDetail: () => void;
-  onOpenUsagePeriod: () => void;
-  onOpenWalletSheet: () => void;
-  onLogout?: () => void;
-  user?: AuthUser | null;
+function DashboardRefreshControl(props: {
+  isRefreshing: boolean;
+  onRefresh: () => void;
 }) {
   return (
-    <ScrollView contentContainerStyle={styles.pageContent}>
+    <RefreshControl
+      colors={[colors.primary]}
+      onRefresh={props.onRefresh}
+      refreshing={props.isRefreshing}
+      tintColor={colors.primary}
+    />
+  );
+}
+
+function DashboardContent(props: DashboardContentProps) {
+  return (
+    <ScrollView
+      alwaysBounceVertical
+      contentContainerStyle={styles.pageContent}
+      refreshControl={
+        <DashboardRefreshControl
+          isRefreshing={props.isRefreshing}
+          onRefresh={props.onRefresh}
+        />
+      }
+    >
       <Header onLogout={props.onLogout} user={props.user} />
-      <BalanceCard onOpenWalletSheet={props.onOpenWalletSheet} />
+      <DashboardBalanceCard {...props} />
       <SummaryCards onOpenHistory={props.onOpenFullHistory} />
       <UsageSection
         filterLabel={props.filterLabel}
@@ -1411,6 +1806,59 @@ function DashboardContent(props: {
       <SpendingLimitSection onOpenLimitDetail={props.onOpenLimitDetail} />
       <HistorySection onOpenFullHistory={props.onOpenFullHistory} />
     </ScrollView>
+  );
+}
+
+function DashboardReloadState(props: {
+  isRefreshing: boolean;
+  message: string;
+  onRefresh: () => void;
+}) {
+  return (
+    <ScrollView
+      alwaysBounceVertical
+      contentContainerStyle={styles.reloadState}
+      refreshControl={
+        <DashboardRefreshControl
+          isRefreshing={props.isRefreshing}
+          onRefresh={props.onRefresh}
+        />
+      }
+    >
+      <DashboardReloadContent {...props} />
+    </ScrollView>
+  );
+}
+
+function DashboardReloadContent(props: {
+  isRefreshing: boolean;
+  message: string;
+  onRefresh: () => void;
+}) {
+  return (
+    <Pressable onPress={props.onRefresh} style={styles.reloadTapArea}>
+      <Text style={styles.reloadIcon}>↻</Text>
+      <Text style={styles.reloadTitle}>Data belum bisa dimuat</Text>
+      <Text style={styles.reloadText}>{props.message}</Text>
+      <Text style={styles.reloadButton}>
+        {props.isRefreshing ? 'Memuat ulang...' : 'Tap untuk refresh'}
+      </Text>
+    </Pressable>
+  );
+}
+
+function DashboardBalanceCard(props: {
+  dashboardSummary: DashboardSummary | null;
+  onOpenWalletSheet: () => void;
+}) {
+  return (
+    <BalanceCard
+      balanceFormatted={props.dashboardSummary?.balance.formatted ?? 'Rp 0'}
+      onOpenWalletSheet={props.onOpenWalletSheet}
+      selectedWalletName={
+        props.dashboardSummary?.selectedWallet.name ?? 'Total Asset Saya'
+      }
+    />
   );
 }
 
@@ -1515,27 +1963,222 @@ function UsagePeriodOverlay(props: {
   );
 }
 
+async function fetchDashboardSummary() {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return null;
+  }
+
+  const response = await getDashboardSummary(token);
+
+  return response.data;
+}
+
+function getWalletTone(wallet: Wallet): WalletTone {
+  if (wallet.type === 'EWALLET') {
+    return 'primary';
+  }
+
+  if (wallet.type === 'SAVINGS') {
+    return 'purple';
+  }
+
+  return wallet.type === 'CASH' ? 'yellow' : 'blue';
+}
+
+function getWalletIcon(wallet: Wallet) {
+  if (wallet.type === 'EWALLET') {
+    return '▦';
+  }
+
+  if (wallet.type === 'SAVINGS') {
+    return '★';
+  }
+
+  return wallet.type === 'CASH' ? '▤' : '▥';
+}
+
+function mapWalletToItem(wallet: Wallet): WalletItem {
+  return {
+    amount: wallet.formattedBalance,
+    icon: getWalletIcon(wallet),
+    id: wallet.id,
+    name: wallet.name,
+    tone: getWalletTone(wallet),
+  };
+}
+
+async function fetchWalletItems() {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return [];
+  }
+
+  const response = await getWallets(token);
+
+  return response.data.map(mapWalletToItem);
+}
+
+function useWalletItems(visible: boolean, refreshKey: number) {
+  const [items, setItems] = useState<WalletItem[]>([]);
+  const remove = (walletId: string) => {
+    setItems(value => value.filter(item => item.id !== walletId));
+  };
+
+  useEffect(() => {
+    if (visible) {
+      loadWalletItems(setItems).catch(() => undefined);
+    }
+  }, [refreshKey, visible]);
+
+  return { items, remove };
+}
+
+async function loadWalletItems(setItems: (items: WalletItem[]) => void) {
+  try {
+    setItems(await fetchWalletItems());
+  } catch {
+    setItems([]);
+  }
+}
+
+function useDashboardData() {
+  const [dashboardSummary, setDashboardSummary] =
+    useState<DashboardSummary | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isRefreshing, setRefreshing] = useState(false);
+  const refreshDashboard = () => (
+    loadDashboardData({
+      setDashboardSummary,
+      setErrorMessage,
+      setRefreshing,
+    })
+  );
+  useInitialDashboardRefresh(refreshDashboard);
+
+  return {
+    dashboardSummary,
+    errorMessage,
+    isRefreshing,
+    refreshDashboard,
+  };
+}
+
+function useInitialDashboardRefresh(refreshDashboard: () => Promise<void>) {
+  useEffect(() => {
+    refreshDashboard().catch(() => undefined);
+  }, []);
+}
+
+async function loadDashboardData(setters: DashboardDataSetters) {
+  setters.setRefreshing(true);
+
+  try {
+    const summary = await fetchDashboardSummary();
+    setters.setDashboardSummary(summary);
+    setters.setErrorMessage('');
+  } catch (error) {
+    if (isSessionExpiredError(error)) {
+      return;
+    }
+
+    setters.setDashboardSummary(null);
+    setters.setErrorMessage(getDashboardErrorMessage(error));
+  } finally {
+    setters.setRefreshing(false);
+  }
+}
+
+function isSessionExpiredError(error: unknown) {
+  return error instanceof Error && (
+    error.message === 'Sesi sudah habis' || error.message === 'Unauthorized'
+  );
+}
+
+function getDashboardErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Koneksi ke server sedang bermasalah.';
+}
+
+function DashboardMainContent(props: DashboardMainContentProps) {
+  return (
+    <>
+      <DashboardContent
+        dashboardSummary={props.dashboardData.dashboardSummary}
+        filterLabel={props.filterLabel}
+        isRefreshing={props.dashboardData.isRefreshing}
+        onOpenFullHistory={props.sheets.onOpenFullHistory}
+        onOpenLimitDetail={props.sheets.onOpenLimitDetail}
+        onOpenUsagePeriod={props.sheets.onOpenUsagePeriod}
+        onOpenWalletSheet={props.sheets.onOpenWalletSheet}
+        onRefresh={props.dashboardData.refreshDashboard}
+        onLogout={props.onLogout}
+        user={props.user}
+      />
+      <FloatingAddButton onPress={props.sheets.onOpenAddSheet} />
+    </>
+  );
+}
+
 function DashboardScreen({ onLogout, user }: DashboardScreenProps) {
+  const dashboardData = useDashboardData();
   const sheets = useDashboardSheetState();
   const period = useUsagePeriodState();
   const filterLabel = `${period.selectedMonth} ${period.selectedYear}`;
 
   return (
-    <View style={styles.container}>
-      <DashboardContent
-        filterLabel={filterLabel}
-        onOpenFullHistory={sheets.onOpenFullHistory}
-        onOpenLimitDetail={sheets.onOpenLimitDetail}
-        onOpenUsagePeriod={sheets.onOpenUsagePeriod}
-        onOpenWalletSheet={sheets.onOpenWalletSheet}
-        onLogout={onLogout}
-        user={user}
+    <DashboardScreenShell
+      dashboardData={dashboardData}
+      filterLabel={filterLabel}
+      onLogout={onLogout}
+      period={period}
+      sheets={sheets}
+      user={user}
+    />
+  );
+}
+
+function DashboardScreenShell(props: DashboardScreenShellProps) {
+  if (props.dashboardData.errorMessage) {
+    return (
+      <DashboardReloadState
+        isRefreshing={props.dashboardData.isRefreshing}
+        message={props.dashboardData.errorMessage}
+        onRefresh={props.dashboardData.refreshDashboard}
       />
-      <FloatingAddButton onPress={sheets.onOpenAddSheet} />
-      <DashboardSheets {...sheets} />
-      <UsagePeriodOverlay period={period} sheets={sheets} />
+    );
+  }
+
+  return <DashboardSuccessShell {...props} />;
+}
+
+function DashboardSuccessShell(props: DashboardScreenShellProps) {
+  return (
+    <View style={styles.container}>
+      <DashboardMainContent
+        dashboardData={props.dashboardData}
+        filterLabel={props.filterLabel}
+        onLogout={props.onLogout}
+        sheets={props.sheets}
+        user={props.user}
+      />
+      <DashboardSheets
+        {...props.sheets}
+        onDashboardChanged={props.dashboardData.refreshDashboard}
+        totalWalletAmount={getDashboardTotalAmount(props.dashboardData)}
+      />
+      <UsagePeriodOverlay period={props.period} sheets={props.sheets} />
     </View>
   );
+}
+
+function getDashboardTotalAmount(data: ReturnType<typeof useDashboardData>) {
+  return data.dashboardSummary?.balance.formatted ?? 'Rp 0';
 }
 
 export default DashboardScreen;

@@ -2,6 +2,8 @@ import { API_BASE_URL } from '../../Constants';
 
 import type { ApiEnvelope, ApiErrorBody } from './api.types';
 
+let sessionExpiredHandler: (() => void) | null = null;
+
 type RequestOptions = {
   body?: object;
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -35,6 +37,12 @@ async function parseError(response: Response) {
   }
 }
 
+function emitSessionExpired(response: Response, options: RequestOptions) {
+  if (response.status === 401 && options.token) {
+    sessionExpiredHandler?.();
+  }
+}
+
 async function apiRequest<TData>(path: string, options: RequestOptions) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -43,12 +51,18 @@ async function apiRequest<TData>(path: string, options: RequestOptions) {
   });
 
   if (!response.ok) {
+    emitSessionExpired(response, options);
     throw new Error(await parseError(response));
   }
 
   return (await response.json()) as ApiEnvelope<TData>;
 }
 
+function setSessionExpiredHandler(handler: (() => void) | null) {
+  sessionExpiredHandler = handler;
+}
+
 export {
   apiRequest,
+  setSessionExpiredHandler,
 };
