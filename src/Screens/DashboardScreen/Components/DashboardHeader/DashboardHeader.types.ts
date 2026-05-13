@@ -1,15 +1,16 @@
 import type { AuthUser } from '../../../../Services';
 
 type DashboardHeaderProps = {
-  onLogout?: () => void;
-  onUpdateUser?: (user: AuthUser) => void;
+  onLogout?: () => Promise<void> | void;
+  onUpdateUser?: (user: AuthUser) => Promise<void> | void;
   user?: AuthUser | null;
 };
 
 type EditNameSheetProps = {
   currentName: string;
+  isLoading?: boolean;
   onClose: () => void;
-  onSave: (name: string) => void;
+  onSave: (name: string) => Promise<void> | void;
   visible: boolean;
 };
 

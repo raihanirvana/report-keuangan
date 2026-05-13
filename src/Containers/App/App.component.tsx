@@ -39,8 +39,8 @@ type AppContentProps = {
   isLoggedIn: boolean;
   isSplashVisible: boolean;
   onLogin: (user: AuthUser) => void;
-  onLogout: () => void;
-  onUpdateUser: (user: AuthUser) => void;
+  onLogout: () => Promise<void>;
+  onUpdateUser: (user: AuthUser) => Promise<void>;
   user: AuthUser | null;
 };
 
@@ -229,9 +229,9 @@ function createLoginHandler(auth: AuthBootstrap) {
 }
 
 function createUpdateUserHandler(auth: AuthBootstrap) {
-  return (user: AuthUser) => {
+  return async (user: AuthUser) => {
     auth.setUser(user);
-    setAuthUser(user).catch(() => undefined);
+    await setAuthUser(user).catch(() => undefined);
   };
 }
 

@@ -5,6 +5,7 @@ import {
   useState,
 } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Modal,
   PanResponder,
@@ -31,6 +32,9 @@ type BottomSheetChildren =
 type BottomSheetProps = {
   children: BottomSheetChildren;
   containerStyle: StyleProp<ViewStyle>;
+  disableClose?: boolean;
+  isLoading?: boolean;
+  loadingLabel?: string;
   onClose: () => void;
   visible: boolean;
 };
@@ -116,7 +120,9 @@ function SheetSurface(props: {
   children: ReactNode;
   containerStyle: StyleProp<ViewStyle>;
   dragY: Animated.Value;
-  panHandlers: BottomSheetDragHandleProps;
+  isLoading?: boolean;
+  loadingLabel?: string;
+  panHandlers?: BottomSheetDragHandleProps;
 }) {
   return (
     <Animated.View
@@ -124,30 +130,84 @@ function SheetSurface(props: {
       {...props.panHandlers}
     >
       {props.children}
+      {props.isLoading ? <SheetLoadingOverlay label={props.loadingLabel} /> : null}
+    </Animated.View>
+  );
+}
+
+function SheetLoadingOverlay(props: { label?: string }) {
+  return (
+    <Pressable style={styles.loadingOverlay}>
+      <ActivityIndicator color={styles.loadingSpinner.color} size="large" />
+      {props.label ? <Animated.Text style={styles.loadingText}>{props.label}</Animated.Text> : null}
+    </Pressable>
+  );
+}
+
+function getSheetInteractionState(props: BottomSheetProps) {
+  return Boolean(props.isLoading || props.disableClose);
+}
+
+function getSheetHandlers(
+  props: BottomSheetProps,
+  responders: ReturnType<typeof useSheetDrag>,
+  isInteractionDisabled: boolean,
+) {
+  return {
+    onClose: isInteractionDisabled ? () => undefined : props.onClose,
+    panHandlers: isInteractionDisabled ? undefined : responders.panResponder.panHandlers,
+    renderDragHandleProps: isInteractionDisabled
+      ? {} as BottomSheetDragHandleProps
+      : responders.dragHandleResponder.panHandlers,
+  };
+}
+
+function BottomSheetModalContent(props: {
+  children: ReactNode;
+  containerStyle: StyleProp<ViewStyle>;
+  dragY: Animated.Value;
+  isLoading?: boolean;
+  loadingLabel?: string;
+  onClose: () => void;
+  panHandlers?: BottomSheetDragHandleProps;
+}) {
+  return (
+    <Animated.View style={styles.container}>
+      <Pressable onPress={props.onClose} style={styles.scrim} />
+      <SheetSurface
+        containerStyle={props.containerStyle}
+        dragY={props.dragY}
+        isLoading={props.isLoading}
+        loadingLabel={props.loadingLabel}
+        panHandlers={props.panHandlers}
+      >
+        {props.children}
+      </SheetSurface>
     </Animated.View>
   );
 }
 
 function BottomSheet(props: BottomSheetProps) {
   const responders = useSheetDrag(props);
-  const children = renderChildren(props.children, responders.dragHandleResponder.panHandlers);
+  const isInteractionDisabled = getSheetInteractionState(props);
+  const handlers = getSheetHandlers(props, responders, isInteractionDisabled);
+  const children = renderChildren(props.children, handlers.renderDragHandleProps);
 
   return (
     <Modal
       animationType="slide"
-      onRequestClose={props.onClose}
+      onRequestClose={handlers.onClose}
       transparent visible={props.visible}
     >
-      <Animated.View style={styles.container}>
-        <Pressable onPress={props.onClose} style={styles.scrim} />
-        <SheetSurface
-          containerStyle={props.containerStyle}
-          dragY={responders.dragY}
-          panHandlers={responders.panResponder.panHandlers}
-        >
-          {children}
-        </SheetSurface>
-      </Animated.View>
+      <BottomSheetModalContent
+        children={children}
+        containerStyle={props.containerStyle}
+        dragY={responders.dragY}
+        isLoading={props.isLoading}
+        loadingLabel={props.loadingLabel}
+        onClose={handlers.onClose}
+        panHandlers={handlers.panHandlers}
+      />
     </Modal>
   );
 }

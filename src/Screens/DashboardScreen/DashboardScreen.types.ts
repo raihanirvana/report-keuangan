@@ -135,8 +135,8 @@ type DashboardPeriod = {
 };
 
 type DashboardScreenProps = {
-  onLogout?: () => void;
-  onUpdateUser?: (user: AuthUser) => void;
+  onLogout?: () => Promise<void> | void;
+  onUpdateUser?: (user: AuthUser) => Promise<void> | void;
   user?: AuthUser | null;
 };
 
@@ -184,8 +184,8 @@ type DashboardContentProps = {
   onOpenUsagePeriod: () => void;
   onRefresh: () => void;
   onSelectHistoryFilter: (filter: HistoryFilter) => void;
-  onLogout?: () => void;
-  onUpdateUser?: (user: AuthUser) => void;
+  onLogout?: () => Promise<void> | void;
+  onUpdateUser?: (user: AuthUser) => Promise<void> | void;
   selectedHistoryFilter: HistoryFilter;
   user?: AuthUser | null;
 };
@@ -201,8 +201,8 @@ type DashboardMainContentProps = {
   filterLabel: string;
   historyPeriod: PeriodState;
   historyPeriodFilter: DashboardPeriod;
-  onLogout?: () => void;
-  onUpdateUser?: (user: AuthUser) => void;
+  onLogout?: () => Promise<void> | void;
+  onUpdateUser?: (user: AuthUser) => Promise<void> | void;
   sheets: DashboardSheetState;
   user?: AuthUser | null;
 };
@@ -210,8 +210,8 @@ type DashboardMainContentProps = {
 type DashboardScreenShellProps = {
   dashboardData: DashboardDataState;
   historyPeriod: PeriodState;
-  onLogout?: () => void;
-  onUpdateUser?: (user: AuthUser) => void;
+  onLogout?: () => Promise<void> | void;
+  onUpdateUser?: (user: AuthUser) => Promise<void> | void;
   period: PeriodState;
   periodFilter: DashboardPeriod;
   sheets: DashboardSheetState;
