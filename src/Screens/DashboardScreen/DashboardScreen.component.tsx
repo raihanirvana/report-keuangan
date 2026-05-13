@@ -291,6 +291,7 @@ function DashboardBodySections(props: DashboardContentProps) {
     <>
       <DashboardWalletAssets
         dashboardSummary={props.dashboardSummary}
+        isLoading={props.isRefreshing}
         onChanged={props.onRefresh}
       />
       <DashboardMiddleSections {...props} />
@@ -304,6 +305,7 @@ function DashboardMiddleSections(props: DashboardContentProps) {
     <>
       <DashboardSummaryCards
         dashboardSummary={props.dashboardSummary}
+        isLoading={props.isRefreshing}
         onOpenHistory={props.onOpenFullHistory}
         periodLabel={props.filterLabel}
       />

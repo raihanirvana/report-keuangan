@@ -12,6 +12,7 @@ import type {
 
 type DashboardWalletAssetsProps = {
   dashboardSummary: DashboardSummary | null;
+  isLoading: boolean;
   onChanged: () => void;
 };
 

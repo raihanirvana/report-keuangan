@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Pressable,
   Text,
   View,
@@ -23,6 +24,7 @@ function DashboardSummaryCards(props: SummaryCardsProps) {
         <SummaryCard
           key={card.variant}
           {...card}
+          isLoading={props.isLoading}
           onOpenHistory={props.onOpenHistory}
           periodLabel={props.periodLabel}
         />
@@ -32,8 +34,13 @@ function DashboardSummaryCards(props: SummaryCardsProps) {
 }
 
 function SummaryCard(props: SummaryCardProps) {
+  if (props.isLoading) {
+    return <SummaryCardLoadingState variant={props.variant} />;
+  }
+
   return (
     <Pressable
+      disabled={props.isLoading}
       onPress={() => props.onOpenHistory(props.filter)}
       style={styles.card}
     >
@@ -42,6 +49,20 @@ function SummaryCard(props: SummaryCardProps) {
       <Text style={styles.period}>{props.periodLabel}</Text>
       <Text style={styles.value}>{props.value}</Text>
     </Pressable>
+  );
+}
+
+function SummaryCardLoadingState(props: {
+  variant: SummaryCardVariant;
+}) {
+  return (
+    <View style={styles.card}>
+      <SummaryIcon icon={props.variant === 'income' ? '↙' : '↗'} variant={props.variant} />
+      <View style={styles.loadingState}>
+        <ActivityIndicator color={styles.loadingSpinner.color} size="small" />
+        <Text style={styles.loadingText}>Memuat ringkasan...</Text>
+      </View>
+    </View>
   );
 }
 

@@ -4,6 +4,7 @@ import {
   useState,
 } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   Text,
   TextInput,
@@ -49,6 +50,7 @@ function DashboardWalletAssets(props: DashboardWalletAssetsProps) {
     <>
       <BalanceCard
         balanceFormatted={props.dashboardSummary?.balance.formatted ?? 'Rp 0'}
+        isLoading={props.isLoading}
         onOpenWalletSheet={() => setWalletSheetVisible(true)}
         selectedWalletName={getSelectedWalletName(props.dashboardSummary)}
       />
@@ -68,9 +70,14 @@ function getSelectedWalletName(summary: DashboardSummary | null) {
 
 function BalanceCard(props: {
   balanceFormatted: string;
+  isLoading: boolean;
   onOpenWalletSheet: () => void;
   selectedWalletName: string;
 }) {
+  if (props.isLoading) {
+    return <BalanceCardLoadingState />;
+  }
+
   return (
     <View style={styles.balanceCard}>
       <Text style={styles.balancePattern}>· · ·</Text>
@@ -86,17 +93,36 @@ function BalanceCard(props: {
   );
 }
 
+function BalanceCardLoadingState() {
+  return (
+    <View style={styles.balanceCard}>
+      <Text style={styles.balancePattern}>· · ·</Text>
+      <View style={styles.balanceLoadingState}>
+        <ActivityIndicator color={styles.balanceLoadingSpinner.color} size="large" />
+        <Text style={styles.balanceLoadingText}>Memuat total aset...</Text>
+      </View>
+    </View>
+  );
+}
+
 function WalletBottomSheet(props: {
   onChanged: () => void;
   onClose: () => void;
   totalAmount: string;
   visible: boolean;
 }) {
-  const renderContent = useWalletBottomSheetContent(props);
+  const sheet = useWalletBottomSheetContent(props);
 
   return (
-    <BottomSheet containerStyle={styles.sheetContainer} onClose={props.onClose} visible={props.visible}>
-      {renderContent}
+    <BottomSheet
+      containerStyle={styles.sheetContainer}
+      disableClose={sheet.isBusy}
+      isLoading={sheet.isBusy}
+      loadingLabel={sheet.loadingLabel}
+      onClose={props.onClose}
+      visible={props.visible}
+    >
+      {sheet.renderContent}
     </BottomSheet>
   );
 }
@@ -110,25 +136,156 @@ function useWalletBottomSheetContent(props: {
   const [refreshKey, setRefreshKey] = useState(0);
   const walletItems = useWalletItems(props.visible, refreshKey);
   const handleChanged = getWalletChangedHandler(setRefreshKey, props.onChanged);
-  const handleDelete = getWalletDeleteHandler(walletItems.remove, handleChanged);
+  const walletMutation = useWalletMutationState();
+  const handleDelete = getWalletDeleteHandler(walletItems.remove, handleChanged, walletMutation.setState);
+  const isBusy = walletItems.isFetching || walletMutation.count > 0;
 
-  return ({ dragHandleProps }: { dragHandleProps: BottomSheetDragHandleProps }) => (
-    <WalletSheetContent
-      dragHandleProps={dragHandleProps}
-      onChanged={handleChanged}
-      onClose={props.onClose}
-      onDeleteWallet={handleDelete}
-      totalAmount={props.totalAmount}
-      walletItems={walletItems.items}
+  return buildWalletBottomSheetContent({
+    handleChanged,
+    handleDelete,
+    isBusy,
+    isFetching: walletItems.isFetching,
+    loadingLabel: walletMutation.loadingLabel,
+    onClose: props.onClose,
+    setMutationState: walletMutation.setState,
+    totalAmount: props.totalAmount,
+    walletItems: walletItems.items,
+  });
+}
+
+function useWalletMutationState() {
+  const [loadingLabel, setLoadingLabel] = useState('Memuat dompet...');
+  const [count, setCount] = useState(0);
+
+  return {
+    count,
+    loadingLabel,
+    setState: createWalletMutationStateSetter(
+      setLoadingLabel,
+      setCount,
+    ),
+  };
+}
+
+function buildWalletBottomSheetContent(props: {
+  handleChanged: () => void;
+  handleDelete: (walletId: string) => void;
+  isBusy: boolean;
+  isFetching: boolean;
+  loadingLabel: string;
+  onClose: () => void;
+  setMutationState: (value: boolean, label: string) => void;
+  totalAmount: string;
+  walletItems: WalletItem[];
+}) {
+  return {
+    isBusy: props.isBusy,
+    loadingLabel: props.loadingLabel,
+    renderContent: createWalletSheetRenderer(props),
+  };
+}
+
+function createWalletSheetRenderer(props: {
+  handleChanged: () => void;
+  handleDelete: (walletId: string) => void;
+  isBusy: boolean;
+  isFetching: boolean;
+  onClose: () => void;
+  setMutationState: (value: boolean, label: string) => void;
+  totalAmount: string;
+  walletItems: WalletItem[];
+}) {
+  return ({ dragHandleProps }: { dragHandleProps: BottomSheetDragHandleProps }) =>
+    renderWalletSheetContent({
+      dragHandleProps,
+      isBusy: props.isBusy,
+      isFetching: props.isFetching,
+      onChanged: props.handleChanged,
+      onClose: props.onClose,
+      onDeleteWallet: props.handleDelete,
+      onSetMutation: props.setMutationState,
+      totalAmount: props.totalAmount,
+      walletItems: props.walletItems,
+    });
+}
+
+function renderWalletCurrentView(props: {
+  isBusy: boolean;
+  onChanged: () => void;
+  onDeleteWallet: (walletId: string) => void;
+  onEditWallet: (wallet: WalletItem) => void;
+  onSetMutation: (value: boolean, label: string) => void;
+  totalAmount: string;
+  walletItems: WalletItem[];
+  walletSheet: WalletSheetState;
+}) {
+  if (props.walletSheet.view === 'create') {
+    return renderWalletCreateContent(props);
+  }
+
+  if (props.walletSheet.view === 'edit') {
+    return <WalletSheetEditContent {...props} />;
+  }
+
+  return <WalletSheetListContent {...props} />;
+}
+
+function renderWalletCreateContent(props: {
+  isBusy: boolean;
+  onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
+  walletSheet: WalletSheetState;
+}) {
+  return (
+    <WalletCreateContent
+      isBusy={props.isBusy}
+      onChanged={props.onChanged}
+      onSetMutation={props.onSetMutation}
+      onSuccess={() => resetWalletSheetToList(props.walletSheet)}
     />
   );
 }
 
-function WalletSheetContent(props: {
+function WalletSheetCurrentContent(props: {
+  isBusy: boolean;
+  isFetching: boolean;
+  onChanged: () => void;
+  onDeleteWallet: (walletId: string) => void;
+  onEditWallet: (wallet: WalletItem) => void;
+  onSetMutation: (value: boolean, label: string) => void;
+  totalAmount: string;
+  walletItems: WalletItem[];
+  walletSheet: WalletSheetState;
+}) {
+  if (props.walletSheet.view === 'list' && props.isFetching) {
+    return <WalletSheetLoadingState />;
+  }
+
+  return renderWalletCurrentView(props);
+}
+
+function renderWalletSheetContent(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
+  isFetching: boolean;
   onChanged: () => void;
   onClose: () => void;
   onDeleteWallet: (walletId: string) => void;
+  onSetMutation: (value: boolean, label: string) => void;
+  totalAmount: string;
+  walletItems: WalletItem[];
+}) {
+  return <WalletSheetContent {...props} />;
+}
+
+function WalletSheetContent(props: {
+  dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
+  isFetching: boolean;
+  onChanged: () => void;
+  onClose: () => void;
+  onDeleteWallet: (walletId: string) => void;
+  onSetMutation: (value: boolean, label: string) => void;
   totalAmount: string;
   walletItems: WalletItem[];
 }) {
@@ -163,6 +320,7 @@ function useWalletSheetState() {
 
 function WalletSheetHeaderContent(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
   onClose: () => void;
   walletItems: WalletItem[];
   walletSheet: WalletSheetState;
@@ -172,6 +330,7 @@ function WalletSheetHeaderContent(props: {
       dragHandleProps={props.dragHandleProps}
       onBack={() => resetWalletSheetToList(props.walletSheet)}
       onClose={props.onClose}
+      isBusy={props.isBusy}
       walletItems={props.walletItems}
       walletSheet={props.walletSheet}
     />
@@ -180,6 +339,7 @@ function WalletSheetHeaderContent(props: {
 
 function WalletSheetHeader(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
   onBack: () => void;
   onClose: () => void;
   walletItems: WalletItem[];
@@ -190,8 +350,8 @@ function WalletSheetHeader(props: {
       action={getWalletHeaderAction(props.walletItems, props.walletSheet)}
       canGoBack={props.walletSheet.view !== 'list'}
       dragHandleProps={props.dragHandleProps}
-      onClose={props.onClose}
-      onGoBack={props.onBack}
+      onClose={props.isBusy ? () => undefined : props.onClose}
+      onGoBack={props.isBusy ? () => undefined : props.onBack}
       title={getWalletSheetTitle(props.walletSheet.view)}
     />
   );
@@ -248,27 +408,19 @@ function SheetCloseButton(props: { onClose: () => void }) {
   );
 }
 
-function WalletSheetCurrentContent(props: {
-  onChanged: () => void;
-  onDeleteWallet: (walletId: string) => void;
-  onEditWallet: (wallet: WalletItem) => void;
-  totalAmount: string;
-  walletItems: WalletItem[];
-  walletSheet: WalletSheetState;
-}) {
-  if (props.walletSheet.view === 'create') {
-    return <WalletCreateContent onChanged={props.onChanged} onSuccess={() => resetWalletSheetToList(props.walletSheet)} />;
-  }
-
-  if (props.walletSheet.view === 'edit') {
-    return <WalletSheetEditContent {...props} />;
-  }
-
-  return <WalletSheetListContent {...props} />;
+function WalletSheetLoadingState() {
+  return (
+    <View style={styles.walletLoadingState}>
+      <ActivityIndicator color={styles.walletLoadingSpinner.color} size="large" />
+      <Text style={styles.walletLoadingText}>Memuat daftar dompet...</Text>
+    </View>
+  );
 }
 
 function WalletSheetEditContent(props: {
+  isBusy: boolean;
   onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
   walletSheet: WalletSheetState;
 }) {
   if (!props.walletSheet.selectedWallet) {
@@ -277,8 +429,10 @@ function WalletSheetEditContent(props: {
 
   return (
     <WalletEditContent
+      isBusy={props.isBusy}
       key={props.walletSheet.selectedWallet.id}
       onChanged={props.onChanged}
+      onSetMutation={props.onSetMutation}
       onSuccess={() => resetWalletSheetToList(props.walletSheet)}
       wallet={props.walletSheet.selectedWallet}
     />
@@ -483,19 +637,30 @@ function toggleWalletMode(walletSheet: WalletSheetState, mode: WalletActionMode)
   walletSheet.setActionMode(value => (value === mode ? 'idle' : mode));
 }
 
-function WalletCreateContent(props: { onChanged: () => void; onSuccess: () => void }) {
+function WalletCreateContent(props: {
+  isBusy: boolean;
+  onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
+  onSuccess: () => void;
+}) {
   const state = useWalletFormState();
 
   return (
     <View style={styles.walletForm}>
       <WalletFormFields state={state} />
-      <WalletSaveButton onPress={async () => submitWalletForm(getWalletCreateSubmitParams({ ...props, state }))} state={state} />
+      <WalletSaveButton
+        isBusy={props.isBusy}
+        onPress={async () => submitWalletForm(getWalletCreateSubmitParams({ ...props, state }))}
+        state={state}
+      />
     </View>
   );
 }
 
 function WalletEditContent(props: {
+  isBusy: boolean;
   onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
   onSuccess: () => void;
   wallet: WalletItem;
 }) {
@@ -504,7 +669,12 @@ function WalletEditContent(props: {
   return (
     <View style={styles.walletForm}>
       <WalletFormFields amountLabel="Saldo Sekarang" state={state} />
-      <WalletSaveButton buttonLabel="Simpan Perubahan" onPress={async () => submitWalletEditState(props, state)} state={state} />
+      <WalletSaveButton
+        buttonLabel="Simpan Perubahan"
+        isBusy={props.isBusy}
+        onPress={async () => submitWalletEditState(props, state)}
+        state={state}
+      />
     </View>
   );
 }
@@ -560,11 +730,20 @@ function WalletTypeChip(props: { isActive: boolean; onPress: () => void; type: W
   );
 }
 
-function WalletSaveButton(props: { buttonLabel?: string; onPress: () => Promise<void>; state: WalletFormState }) {
+function WalletSaveButton(props: {
+  buttonLabel?: string;
+  isBusy: boolean;
+  onPress: () => Promise<void>;
+  state: WalletFormState;
+}) {
   return (
     <>
       {!!props.state.errorMessage && <Text style={styles.walletFormError}>{props.state.errorMessage}</Text>}
-      <Pressable onPress={props.onPress} style={styles.saveWalletButton}>
+      <Pressable
+        disabled={props.isBusy}
+        onPress={props.onPress}
+        style={[styles.saveWalletButton, props.isBusy && styles.walletButtonDisabled]}
+      >
         <Text style={styles.saveWalletButtonText}>{props.buttonLabel ?? 'Simpan Dompet'}</Text>
       </Pressable>
     </>
@@ -632,19 +811,36 @@ function getWalletUpdatePayload(params: WalletFormDefaults): UpdateWalletPayload
   };
 }
 
-function getWalletCreateSubmitParams(props: { onChanged: () => void; onSuccess: () => void; state: WalletFormState }) {
+function getWalletCreateSubmitParams(props: {
+  onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
+  onSuccess: () => void;
+  state: WalletFormState;
+}) {
   return getWalletSubmitActionParams(props);
 }
 
-function getWalletEditSubmitParams(props: { onChanged: () => void; onSuccess: () => void; state: WalletFormState; walletId: string }) {
+function getWalletEditSubmitParams(props: {
+  onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
+  onSuccess: () => void;
+  state: WalletFormState;
+  walletId: string;
+}) {
   return { ...getWalletSubmitActionParams(props), walletId: props.walletId };
 }
 
-function getWalletSubmitActionParams(props: { onChanged: () => void; onSuccess: () => void; state: WalletFormState }) {
+function getWalletSubmitActionParams(props: {
+  onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
+  onSuccess: () => void;
+  state: WalletFormState;
+}) {
   return {
     balance: props.state.balance,
     name: props.state.name,
     onChanged: props.onChanged,
+    onSetMutation: props.onSetMutation,
     onSuccess: props.onSuccess,
     selectedType: props.state.selectedType,
     setErrorMessage: props.state.setErrorMessage,
@@ -653,6 +849,7 @@ function getWalletSubmitActionParams(props: { onChanged: () => void; onSuccess: 
 
 async function submitWalletForm(params: WalletFormDefaults & {
   onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
   onSuccess: () => void;
   setErrorMessage: (message: string) => void;
 }) {
@@ -660,15 +857,19 @@ async function submitWalletForm(params: WalletFormDefaults & {
   if (!isWalletFormValid({ ...params, token }) || !token) return;
 
   try {
+    params.onSetMutation(true, 'Menyimpan dompet...');
     await createWallet(token, getWalletSubmitPayload(params));
     handleWalletMutationSuccess(params);
   } catch (error) {
     params.setErrorMessage(getWalletMutationErrorMessage(error, 'Gagal menyimpan dompet.'));
+  } finally {
+    params.onSetMutation(false, '');
   }
 }
 
 async function submitWalletEditForm(params: WalletFormDefaults & {
   onChanged: () => void;
+  onSetMutation: (value: boolean, label: string) => void;
   onSuccess: () => void;
   setErrorMessage: (message: string) => void;
   walletId: string;
@@ -677,15 +878,23 @@ async function submitWalletEditForm(params: WalletFormDefaults & {
   if (!isWalletFormValid({ ...params, token }) || !token) return;
 
   try {
+    params.onSetMutation(true, 'Menyimpan perubahan dompet...');
     await updateWallet(token, params.walletId, getWalletUpdatePayload(params));
     handleWalletMutationSuccess(params);
   } catch (error) {
     params.setErrorMessage(getWalletMutationErrorMessage(error, 'Gagal memperbarui dompet.'));
+  } finally {
+    params.onSetMutation(false, '');
   }
 }
 
 function submitWalletEditState(
-  props: { onChanged: () => void; onSuccess: () => void; wallet: WalletItem },
+  props: {
+    onChanged: () => void;
+    onSetMutation: (value: boolean, label: string) => void;
+    onSuccess: () => void;
+    wallet: WalletItem;
+  },
   state: WalletFormState,
 ) {
   return submitWalletEditForm(getWalletEditSubmitParams({ ...props, state, walletId: props.wallet.id }));
@@ -727,10 +936,22 @@ function formatMoneyInput(value: string) {
   return digits ? `Rp ${Number(digits).toLocaleString('id-ID')}` : '';
 }
 
-function getWalletDeleteHandler(removeWallet: (walletId: string) => void, onChanged: () => void) {
-  return (walletId: string) => {
-    removeWallet(walletId);
-    handleDeleteWallet(walletId).then(onChanged).catch(onChanged);
+function getWalletDeleteHandler(
+  removeWallet: (walletId: string) => void,
+  onChanged: () => void,
+  onSetMutation: (value: boolean, label: string) => void,
+) {
+  return async (walletId: string) => {
+    try {
+      onSetMutation(true, 'Menghapus dompet...');
+      await handleDeleteWallet(walletId);
+      removeWallet(walletId);
+      onChanged();
+    } catch {
+      onChanged();
+    } finally {
+      onSetMutation(false, '');
+    }
   };
 }
 
@@ -804,22 +1025,54 @@ async function fetchWalletItems() {
 }
 
 function useWalletItems(visible: boolean, refreshKey: number) {
+  const [isFetching, setFetching] = useState(false);
   const [items, setItems] = useState<WalletItem[]>([]);
   const remove = (walletId: string) => setItems(value => value.filter(item => item.id !== walletId));
 
   useEffect(() => {
-    if (visible) loadWalletItems(setItems).catch(() => undefined);
+    if (visible) {
+      loadWalletItems({
+        setFetching,
+        setItems,
+      }).catch(() => undefined);
+    }
   }, [refreshKey, visible]);
 
-  return { items, remove };
+  return {
+    isFetching,
+    items,
+    remove,
+  };
 }
 
-async function loadWalletItems(setItems: (items: WalletItem[]) => void) {
+async function loadWalletItems(props: {
+  setFetching: (value: boolean) => void;
+  setItems: (items: WalletItem[]) => void;
+}) {
   try {
-    setItems(await fetchWalletItems());
+    props.setFetching(true);
+    props.setItems(await fetchWalletItems());
   } catch {
-    setItems([]);
+    props.setItems([]);
+  } finally {
+    props.setFetching(false);
   }
+}
+
+function createWalletMutationStateSetter(
+  setLoadingLabel: (value: string) => void,
+  setMutationCount: (setter: (value: number) => number) => void,
+) {
+  return (value: boolean, label: string) => {
+    if (value) {
+      setLoadingLabel(label);
+      setMutationCount(count => count + 1);
+
+      return;
+    }
+
+    setMutationCount(count => Math.max(count - 1, 0));
+  };
 }
 
 export default DashboardWalletAssets;

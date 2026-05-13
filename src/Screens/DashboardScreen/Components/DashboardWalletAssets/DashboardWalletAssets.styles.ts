@@ -67,6 +67,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     opacity: 0.94,
   },
+  balanceLoadingSpinner: {
+    color: colors.white,
+  },
+  balanceLoadingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 154,
+  },
+  balanceLoadingText: {
+    color: colors.white,
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 12,
+  },
   balanceNote: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
@@ -356,6 +371,22 @@ const styles = StyleSheet.create({
   walletHeaderActions: {
     flexDirection: 'row',
   },
+  walletLoadingSpinner: {
+    color: colors.primary,
+  },
+  walletLoadingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 260,
+    paddingVertical: 32,
+  },
+  walletLoadingText: {
+    color: colors.slate600,
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 12,
+  },
   walletOption: {
     borderRadius: 22,
     borderWidth: 1,
@@ -405,6 +436,9 @@ const styles = StyleSheet.create({
   walletTrashText: {
     fontSize: 18,
     lineHeight: 21,
+  },
+  walletButtonDisabled: {
+    opacity: 0.55,
   },
   walletTypeChip: {
     backgroundColor: 'rgba(255, 204, 213, 0.14)',

@@ -11,6 +11,7 @@ type SummaryCardData = {
 };
 
 type SummaryCardProps = SummaryCardData & {
+  isLoading: boolean;
   onOpenHistory: (filter: HistoryFilter) => void;
   periodLabel: string;
 };

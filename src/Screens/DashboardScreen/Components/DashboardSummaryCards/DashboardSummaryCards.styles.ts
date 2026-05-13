@@ -42,6 +42,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 16,
   },
+  loadingSpinner: {
+    color: colors.primary,
+  },
+  loadingState: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    minHeight: 58,
+  },
+  loadingText: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 10,
+  },
   period: {
     color: colors.slate400,
     fontFamily: typography.fontFamily,

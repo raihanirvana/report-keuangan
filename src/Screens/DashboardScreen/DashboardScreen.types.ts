@@ -192,6 +192,7 @@ type DashboardContentProps = {
 
 type SummaryCardsProps = {
   dashboardSummary: DashboardSummary | null;
+  isLoading: boolean;
   onOpenHistory: (filter: HistoryFilter) => void;
   periodLabel: string;
 };
