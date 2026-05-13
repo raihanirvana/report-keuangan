@@ -55,9 +55,12 @@ type LimitSheetState = {
   editCategory: (state: LimitEditFormState) => void;
   editingLimitDraft: EditingLimitDraft | null;
   hideSnackbar: () => void;
+  isBusy: boolean;
   isDeleteMode: boolean;
   isEditMode: boolean;
+  isFetching: boolean;
   limitItems: LimitDetail[];
+  loadingLabel: string;
   openEditCategory: (item: LimitDetail) => void;
   saveCategory: (state: LimitCategoryFormState) => void;
   saveCustomCategory: (state: CustomCategoryFormState) => void;
@@ -248,8 +251,10 @@ type LimitDetailSheetContentProps = {
 
 type LimitDetailListViewProps = {
   dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
   isDeleteMode: boolean;
   isEditMode: boolean;
+  isFetching: boolean;
   limitItems: LimitDetail[];
   onCreateCategory: () => void;
   onDeleteBudget: (budgetId: string) => void;
@@ -296,6 +301,7 @@ type WalletFormDefaults = {
 
 type LimitCategoryFormState = {
   categories: Category[];
+  isLoading: boolean;
   limitAmount: string;
   selectedCategoryId: string;
   setLimitAmount: (value: string) => void;
@@ -319,6 +325,7 @@ type CustomCategoryFormState = {
 };
 
 type LimitCategoryCreateContentProps = {
+  isBusy: boolean;
   month: string;
   onCreateNewCategory: () => void;
   onHideInfoMessage: () => void;

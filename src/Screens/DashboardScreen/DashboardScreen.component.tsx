@@ -325,6 +325,7 @@ function DashboardFooterSections(props: DashboardContentProps) {
     <>
       <DashboardSpendingLimit
         dashboardSummary={props.dashboardSummary}
+        isLoading={props.isRefreshing}
         onOpenLimitDetail={props.onOpenLimitDetail}
       />
       <DashboardHistory

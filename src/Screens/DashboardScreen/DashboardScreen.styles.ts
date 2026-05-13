@@ -562,6 +562,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
   },
+  limitFormLoadingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 160,
+    paddingVertical: 16,
+  },
   limitDetailContainer: {
     backgroundColor: colors.white,
     borderTopLeftRadius: 34,
@@ -673,6 +679,28 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     height: 10,
     overflow: 'hidden',
+  },
+  limitLoadingSheetState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 260,
+    paddingVertical: 24,
+  },
+  limitLoadingSpinner: {
+    color: colors.primary,
+  },
+  limitLoadingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 144,
+  },
+  limitLoadingText: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 12,
+    textAlign: 'center',
   },
   limitEmptyState: {
     alignItems: 'center',

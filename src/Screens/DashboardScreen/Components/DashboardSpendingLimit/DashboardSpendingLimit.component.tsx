@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   Text,
   TextInput,
@@ -60,9 +61,14 @@ import type {
 
 function SpendingLimitSection(props: {
   dashboardSummary: DashboardSummary | null;
+  isLoading: boolean;
   onOpenLimitDetail: () => void;
 }) {
   const budgetLimit = props.dashboardSummary?.budgetLimit;
+
+  if (props.isLoading) {
+    return <SpendingLimitLoadingState />;
+  }
 
   return (
     <View style={styles.limitSection}>
@@ -74,6 +80,19 @@ function SpendingLimitSection(props: {
           usedAmount={budgetLimit?.usedAmount ?? 0}
         />
       </Pressable>
+    </View>
+  );
+}
+
+function SpendingLimitLoadingState() {
+  return (
+    <View style={styles.limitSection}>
+      <View style={styles.limitCard}>
+        <View style={styles.limitLoadingState}>
+          <ActivityIndicator color={styles.limitLoadingSpinner.color} size="large" />
+          <Text style={styles.limitLoadingText}>Memuat batas pengeluaran...</Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -387,16 +406,29 @@ function LimitDetailHeaderActions(props: {
   onToggleEdit: () => void;
   onToggleDelete: () => void;
 }) {
+  if (!props.limitItems.length) {
+    return null;
+  }
+
+  return <LimitDetailHeaderActionButtons {...props} />;
+}
+
+function LimitDetailHeaderActionButtons(props: {
+  isDeleteMode: boolean;
+  isEditMode: boolean;
+  onToggleEdit: () => void;
+  onToggleDelete: () => void;
+}) {
   return (
     <View style={styles.limitHeaderAction}>
       <WalletEditModeButton
         isActive={props.isEditMode}
-        isDisabled={!props.limitItems.length}
+        isDisabled={false}
         onPress={props.onToggleEdit}
       />
       <WalletTrashButton
         isActive={props.isDeleteMode}
-        isDisabled={!props.limitItems.length}
+        isDisabled={false}
         onPress={props.onToggleDelete}
       />
     </View>
@@ -463,6 +495,7 @@ function LimitDetailItem(props: {
 }
 
 function LimitEmptyState(props: {
+  isBusy: boolean;
   onCreateCategory: () => void;
   onUsePreviousMonth: () => void;
 }) {
@@ -472,23 +505,38 @@ function LimitEmptyState(props: {
       <Text style={styles.limitEmptyText}>
         Atur batas belanja per kategori, atau pakai aturan bulan kemarin.
       </Text>
-      <Pressable
-        onPress={props.onCreateCategory}
-        style={styles.addLimitCategoryButton}
-      >
-        <Text style={styles.addLimitCategoryText}>Tambah Batas Kategori</Text>
-      </Pressable>
-      <Pressable
-        onPress={props.onUsePreviousMonth}
-        style={styles.usePreviousLimitButton}
-      >
-        <Text style={styles.usePreviousLimitText}>Pakai Aturan Bulan Kemarin</Text>
-      </Pressable>
+      <LimitEmptyStateActions {...props} />
     </View>
   );
 }
 
+function LimitEmptyStateActions(props: {
+  isBusy: boolean;
+  onCreateCategory: () => void;
+  onUsePreviousMonth: () => void;
+}) {
+  return (
+    <>
+      <Pressable
+        disabled={props.isBusy}
+        onPress={props.onCreateCategory}
+        style={[styles.addLimitCategoryButton, props.isBusy && styles.walletTrashButtonDisabled]}
+      >
+        <Text style={styles.addLimitCategoryText}>Tambah Batas Kategori</Text>
+      </Pressable>
+      <Pressable
+        disabled={props.isBusy}
+        onPress={props.onUsePreviousMonth}
+        style={[styles.usePreviousLimitButton, props.isBusy && styles.walletTrashButtonDisabled]}
+      >
+        <Text style={styles.usePreviousLimitText}>Pakai Aturan Bulan Kemarin</Text>
+      </Pressable>
+    </>
+  );
+}
+
 function LimitDetailItems(props: {
+  isBusy: boolean;
   isDeleteMode: boolean;
   isEditMode: boolean;
   limitItems: LimitDetail[];
@@ -499,7 +547,7 @@ function LimitDetailItems(props: {
   return (
     <View style={styles.limitDetailContent}>
       <LimitDetailItemList {...props} />
-      <AddLimitCategoryButton onPress={props.onCreateCategory} />
+      <AddLimitCategoryButton isBusy={props.isBusy} onPress={props.onCreateCategory} />
     </View>
   );
 }
@@ -523,15 +571,42 @@ function LimitDetailItemList(props: {
   ));
 }
 
-function AddLimitCategoryButton(props: { onPress: () => void }) {
+function AddLimitCategoryButton(props: { isBusy: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={props.onPress} style={styles.addLimitCategoryButton}>
+    <Pressable
+      disabled={props.isBusy}
+      onPress={props.onPress}
+      style={[styles.addLimitCategoryButton, props.isBusy && styles.walletTrashButtonDisabled]}
+    >
       <Text style={styles.addLimitCategoryText}>Tambah Batas Kategori</Text>
     </Pressable>
   );
 }
 
 function LimitDetailContent(props: {
+  isBusy: boolean;
+  isDeleteMode: boolean;
+  isEditMode: boolean;
+  isFetching: boolean;
+  limitItems: LimitDetail[];
+  onCreateCategory: () => void;
+  onDeleteBudget: (budgetId: string) => void;
+  onEditBudget: (item: LimitDetail) => void;
+  onUsePreviousMonth: () => void;
+}) {
+  if (props.isFetching) {
+    return (
+      <View style={styles.limitDetailContent}>
+        <LimitDetailLoadingState />
+      </View>
+    );
+  }
+
+  return renderLimitDetailContentBody(props);
+}
+
+function renderLimitDetailContentBody(props: {
+  isBusy: boolean;
   isDeleteMode: boolean;
   isEditMode: boolean;
   limitItems: LimitDetail[];
@@ -547,9 +622,19 @@ function LimitDetailContent(props: {
   return (
     <View style={styles.limitDetailContent}>
       <LimitEmptyState
+        isBusy={props.isBusy}
         onCreateCategory={props.onCreateCategory}
         onUsePreviousMonth={props.onUsePreviousMonth}
       />
+    </View>
+  );
+}
+
+function LimitDetailLoadingState() {
+  return (
+    <View style={styles.limitLoadingSheetState}>
+      <ActivityIndicator color={styles.limitLoadingSpinner.color} size="large" />
+      <Text style={styles.limitLoadingText}>Memuat batas kategori...</Text>
     </View>
   );
 }
@@ -577,12 +662,14 @@ function LimitCategoryCreateContent(props: LimitCategoryCreateContentProps) {
 
 function getLimitCategoryCreateActionProps(
   props: {
+    isBusy: boolean;
     onCreateNewCategory: () => void;
     onSaveCategory: (state: LimitCategoryFormState) => void;
   },
   state: LimitCategoryFormState,
 ) {
   return {
+    isBusy: props.isBusy,
     onCreateNewCategory: props.onCreateNewCategory,
     onSaveCategory: () => props.onSaveCategory(state),
   };
@@ -596,20 +683,23 @@ function LimitCategoryCreateSnackbar(props: {
 }
 
 function LimitCategoryCreateActions(props: {
+  isBusy: boolean;
   onCreateNewCategory: () => void;
   onSaveCategory: () => void;
 }) {
   return (
     <>
       <Pressable
+        disabled={props.isBusy}
         onPress={props.onCreateNewCategory}
-        style={styles.limitSecondaryButton}
+        style={[styles.limitSecondaryButton, props.isBusy && styles.walletTrashButtonDisabled]}
       >
         <Text style={styles.limitSecondaryButtonText}>Tambah Kategori Baru</Text>
       </Pressable>
       <Pressable
+        disabled={props.isBusy}
         onPress={props.onSaveCategory}
-        style={styles.saveWalletButton}
+        style={[styles.saveWalletButton, props.isBusy && styles.walletTrashButtonDisabled]}
       >
         <Text style={styles.saveWalletButtonText}>Simpan Kategori</Text>
       </Pressable>
@@ -618,6 +708,10 @@ function LimitCategoryCreateActions(props: {
 }
 
 function LimitCategoryFormFields(props: { state: LimitCategoryFormState }) {
+  if (props.state.isLoading) {
+    return <LimitFormLoadingState label="Memuat kategori pengeluaran..." />;
+  }
+
   return (
     <>
       <LimitCategoryPicker state={props.state} />
@@ -629,6 +723,15 @@ function LimitCategoryFormFields(props: { state: LimitCategoryFormState }) {
         value={props.state.limitAmount}
       />
     </>
+  );
+}
+
+function LimitFormLoadingState(props: { label: string }) {
+  return (
+    <View style={styles.limitFormLoadingState}>
+      <ActivityIndicator color={styles.limitLoadingSpinner.color} size="large" />
+      <Text style={styles.limitLoadingText}>{props.label}</Text>
+    </View>
   );
 }
 
@@ -674,19 +777,20 @@ function useLimitCategoryFormState(
   refreshKey: number,
   onInfoMessage: (message: string) => void,
 ): LimitCategoryFormState {
-  const categories = useExpenseCategories(refreshKey);
-  const spentCategoryIds = useSpentExpenseCategoryIds(month);
+  const categoriesState = useExpenseCategories(refreshKey);
+  const spentCategoryIdsState = useSpentExpenseCategoryIds(month);
   const [limitAmount, setLimitAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const effectiveCategoryId = selectedCategoryId || categories[0]?.id || '';
+  const effectiveCategoryId = selectedCategoryId || categoriesState.categories[0]?.id || '';
   const selectCategory = getSelectLimitCategoryHandler(
     setSelectedCategoryId,
-    spentCategoryIds,
+    spentCategoryIdsState.categoryIds,
     onInfoMessage,
   );
 
   return {
-    categories,
+    categories: categoriesState.categories,
+    isLoading: categoriesState.isLoading || spentCategoryIdsState.isLoading,
     limitAmount,
     selectedCategoryId: effectiveCategoryId,
     setLimitAmount: (value: string) => setLimitAmount(formatMoneyInput(value)),
@@ -710,27 +814,60 @@ function getSelectLimitCategoryHandler(
 }
 
 function useExpenseCategories(refreshKey: number) {
+  const [isLoading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    fetchExpenseCategories()
-      .then(setCategories)
-      .catch(() => setCategories([]));
+    loadExpenseCategories(setCategories, setLoading).catch(() => undefined);
   }, [refreshKey]);
 
-  return categories;
+  return {
+    categories,
+    isLoading,
+  };
 }
 
 function useSpentExpenseCategoryIds(month: string) {
+  const [isLoading, setLoading] = useState(false);
   const [categoryIds, setCategoryIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetchSpentExpenseCategoryIds(month)
-      .then(setCategoryIds)
-      .catch(() => setCategoryIds(new Set()));
+    loadSpentExpenseCategoryIds(month, setCategoryIds, setLoading).catch(() => undefined);
   }, [month]);
 
-  return categoryIds;
+  return {
+    categoryIds,
+    isLoading,
+  };
+}
+
+async function loadExpenseCategories(
+  setCategories: (value: Category[]) => void,
+  setLoading: (value: boolean) => void,
+) {
+  try {
+    setLoading(true);
+    setCategories(await fetchExpenseCategories());
+  } catch {
+    setCategories([]);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function loadSpentExpenseCategoryIds(
+  month: string,
+  setCategoryIds: (value: Set<string>) => void,
+  setLoading: (value: boolean) => void,
+) {
+  try {
+    setLoading(true);
+    setCategoryIds(await fetchSpentExpenseCategoryIds(month));
+  } catch {
+    setCategoryIds(new Set());
+  } finally {
+    setLoading(false);
+  }
 }
 
 async function fetchExpenseCategories() {
@@ -767,6 +904,7 @@ async function fetchDashboardSummary(month: string) {
 
 function LimitCategoryCreateView(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
   month: string;
   onClose: () => void;
   onCreateNewCategory: () => void;
@@ -777,8 +915,6 @@ function LimitCategoryCreateView(props: {
   refreshKey: number;
   snackbarMessage: string;
 }) {
-  const contentProps = getLimitCategoryCreateContentProps(props);
-
   return (
     <>
       <LimitCategoryCreateHeader
@@ -786,12 +922,28 @@ function LimitCategoryCreateView(props: {
         onClose={props.onClose}
         onGoBack={props.onGoBack}
       />
-      <LimitCategoryCreateContent {...contentProps} />
+      <LimitCategoryCreateBody {...props} />
     </>
   );
 }
 
+function LimitCategoryCreateBody(props: {
+  isBusy: boolean;
+  month: string;
+  onCreateNewCategory: () => void;
+  onHideSnackbar: () => void;
+  onInfoMessage: (message: string) => void;
+  onSaveCategory: (state: LimitCategoryFormState) => void;
+  refreshKey: number;
+  snackbarMessage: string;
+}) {
+  const contentProps = getLimitCategoryCreateContentProps(props);
+
+  return <LimitCategoryCreateContent {...contentProps} />;
+}
+
 function getLimitCategoryCreateContentProps(props: {
+  isBusy: boolean;
   month: string;
   onCreateNewCategory: () => void;
   onHideSnackbar: () => void;
@@ -801,6 +953,7 @@ function getLimitCategoryCreateContentProps(props: {
   snackbarMessage: string;
 }): LimitCategoryCreateContentProps {
   return {
+    isBusy: props.isBusy,
     month: props.month,
     onCreateNewCategory: props.onCreateNewCategory,
     onHideInfoMessage: props.onHideSnackbar,
@@ -828,13 +981,14 @@ function LimitCategoryCreateHeader(props: {
 }
 
 function LimitEditContent(props: {
+  isBusy: boolean;
   onSave: (state: LimitEditFormState) => void;
   state: LimitEditFormState;
 }) {
   return (
     <View style={styles.walletForm}>
       <LimitEditFields state={props.state} />
-      <LimitEditSaveButton onPress={() => props.onSave(props.state)} />
+      <LimitEditSaveButton isBusy={props.isBusy} onPress={() => props.onSave(props.state)} />
     </View>
   );
 }
@@ -859,9 +1013,13 @@ function LimitEditFields(props: { state: LimitEditFormState }) {
   );
 }
 
-function LimitEditSaveButton(props: { onPress: () => void }) {
+function LimitEditSaveButton(props: { isBusy: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={props.onPress} style={styles.saveWalletButton}>
+    <Pressable
+      disabled={props.isBusy}
+      onPress={props.onPress}
+      style={[styles.saveWalletButton, props.isBusy && styles.walletTrashButtonDisabled]}
+    >
       <Text style={styles.saveWalletButtonText}>Simpan Perubahan</Text>
     </Pressable>
   );
@@ -881,6 +1039,7 @@ function useLimitEditFormState(draft: EditingLimitDraft): LimitEditFormState {
 function LimitEditView(props: {
   draft: EditingLimitDraft | null;
   dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
   onClose: () => void;
   onGoBack: () => void;
   onSave: (state: LimitEditFormState) => void;
@@ -889,6 +1048,24 @@ function LimitEditView(props: {
     return null;
   }
 
+  return renderLimitEditLayout({
+    draft: props.draft,
+    dragHandleProps: props.dragHandleProps,
+    isBusy: props.isBusy,
+    onClose: props.onClose,
+    onGoBack: props.onGoBack,
+    onSave: props.onSave,
+  });
+}
+
+function renderLimitEditLayout(props: {
+  draft: EditingLimitDraft;
+  dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
+  onClose: () => void;
+  onGoBack: () => void;
+  onSave: (state: LimitEditFormState) => void;
+}) {
   return (
     <>
       <LimitEditHeader
@@ -896,21 +1073,24 @@ function LimitEditView(props: {
         onClose={props.onClose}
         onGoBack={props.onGoBack}
       />
-      {renderLimitEditForm({
-        draft: props.draft,
-        onSave: props.onSave,
-      })}
+      <LimitEditViewContent
+        draft={props.draft}
+        isBusy={props.isBusy}
+        onSave={props.onSave}
+      />
     </>
   );
 }
 
-function renderLimitEditForm(props: {
+function LimitEditViewContent(props: {
   draft: EditingLimitDraft;
+  isBusy: boolean;
   onSave: (state: LimitEditFormState) => void;
 }) {
   return (
     <LimitEditForm
       draft={props.draft}
+      isBusy={props.isBusy}
       key={props.draft.budgetId}
       onSave={props.onSave}
     />
@@ -919,11 +1099,12 @@ function renderLimitEditForm(props: {
 
 function LimitEditForm(props: {
   draft: EditingLimitDraft;
+  isBusy: boolean;
   onSave: (state: LimitEditFormState) => void;
 }) {
   const state = useLimitEditFormState(props.draft);
 
-  return <LimitEditContent onSave={props.onSave} state={state} />;
+  return <LimitEditContent isBusy={props.isBusy} onSave={props.onSave} state={state} />;
 }
 
 function LimitEditHeader(props: {
@@ -943,6 +1124,7 @@ function LimitEditHeader(props: {
 }
 
 function CustomCategoryCreateContent(props: {
+  isBusy: boolean;
   onSaveCategory: (state: CustomCategoryFormState) => void;
 }) {
   const state = useCustomCategoryFormState();
@@ -957,13 +1139,26 @@ function CustomCategoryCreateContent(props: {
       />
       <CategoryColorPicker state={state} />
       <CategoryIconPicker state={state} />
-      <Pressable
+      <CustomCategorySaveButton
+        isBusy={props.isBusy}
         onPress={() => props.onSaveCategory(state)}
-        style={styles.saveWalletButton}
-      >
-        <Text style={styles.saveWalletButtonText}>Simpan Kategori</Text>
-      </Pressable>
+      />
     </View>
+  );
+}
+
+function CustomCategorySaveButton(props: {
+  isBusy: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      disabled={props.isBusy}
+      onPress={props.onPress}
+      style={[styles.saveWalletButton, props.isBusy && styles.walletTrashButtonDisabled]}
+    >
+      <Text style={styles.saveWalletButtonText}>Simpan Kategori</Text>
+    </Pressable>
   );
 }
 
@@ -1042,6 +1237,7 @@ function useCustomCategoryFormState(): CustomCategoryFormState {
 
 function CustomCategoryCreateView(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  isBusy: boolean;
   onClose: () => void;
   onGoBack: () => void;
   onSaveCategory: (state: CustomCategoryFormState) => void;
@@ -1055,7 +1251,10 @@ function CustomCategoryCreateView(props: {
         onGoBack={props.onGoBack}
         title="Tambah Category ✨"
       />
-      <CustomCategoryCreateContent onSaveCategory={props.onSaveCategory} />
+      <CustomCategoryCreateContent
+        isBusy={props.isBusy}
+        onSaveCategory={props.onSaveCategory}
+      />
     </>
   );
 }
@@ -1093,7 +1292,13 @@ function useLimitDetailState(props: LimitDetailStateProps) {
   );
   const actions = getLimitDetailActions(saveParams, state);
 
-  useLimitDetailRefresh(props.month, props.visible, state.setLimitState);
+  useLimitDetailRefresh(
+    props.month,
+    props.visible,
+    state.setFetching,
+    state.setLimitState,
+    state.setLoadingLabel,
+  );
 
   return getLimitDetailStateValue(
     getLimitDetailStatePayload(state, actions),
@@ -1106,7 +1311,10 @@ function useLimitDetailLocalState() {
     values.setDeleteMode,
     values.setEditMode,
     values.setEditingLimitDraft,
+    values.setFetching,
     values.setLimitState,
+    values.setLoadingLabel,
+    values.setMutationCount,
     values.setSnackbarMessage,
     values.setView,
   );
@@ -1124,19 +1332,36 @@ function useLimitDetailLocalStateValues() {
     null,
   );
   const [limitState, setLimitState] = useState<LimitDetailState>({ items: [] });
+  const loadingState = useLimitDetailLoadingState();
   const modeState = useLimitDetailModeState();
   const sheetState = useLimitDetailSheetState();
 
-  return getLimitDetailLocalStateValuesResult(
+  return getLimitDetailLocalStateValuesResult({
     categoryRefreshKey,
     editingLimitDraft,
     limitState,
+    loadingState,
     modeState,
     setCategoryRefreshKey,
     setEditingLimitDraft,
     setLimitState,
     sheetState,
-  );
+  });
+}
+
+function useLimitDetailLoadingState() {
+  const [isFetching, setFetching] = useState(false);
+  const [loadingLabel, setLoadingLabel] = useState('Memuat batas pengeluaran...');
+  const [mutationCount, setMutationCount] = useState(0);
+
+  return {
+    isFetching,
+    loadingLabel,
+    mutationCount,
+    setFetching,
+    setLoadingLabel,
+    setMutationCount,
+  };
 }
 
 function useLimitDetailModeState() {
@@ -1163,25 +1388,27 @@ function useLimitDetailSheetState() {
   };
 }
 
-function getLimitDetailLocalStateValuesResult(
-  categoryRefreshKey: number,
-  editingLimitDraft: EditingLimitDraft | null,
-  limitState: LimitDetailState,
-  modeState: ReturnType<typeof useLimitDetailModeState>,
-  setCategoryRefreshKey: Dispatch<SetStateAction<number>>,
-  setEditingLimitDraft: Dispatch<SetStateAction<EditingLimitDraft | null>>,
-  setLimitState: Dispatch<SetStateAction<LimitDetailState>>,
-  sheetState: ReturnType<typeof useLimitDetailSheetState>,
-) {
+function getLimitDetailLocalStateValuesResult(props: {
+  categoryRefreshKey: number;
+  editingLimitDraft: EditingLimitDraft | null;
+  limitState: LimitDetailState;
+  loadingState: ReturnType<typeof useLimitDetailLoadingState>;
+  modeState: ReturnType<typeof useLimitDetailModeState>;
+  setCategoryRefreshKey: Dispatch<SetStateAction<number>>;
+  setEditingLimitDraft: Dispatch<SetStateAction<EditingLimitDraft | null>>;
+  setLimitState: Dispatch<SetStateAction<LimitDetailState>>;
+  sheetState: ReturnType<typeof useLimitDetailSheetState>;
+}) {
   return {
-    categoryRefreshKey,
-    editingLimitDraft,
-    limitState,
-    setCategoryRefreshKey,
-    setEditingLimitDraft,
-    setLimitState,
-    ...getLimitDetailModeStateResult(modeState),
-    ...getLimitDetailSheetStateResult(sheetState),
+    categoryRefreshKey: props.categoryRefreshKey,
+    editingLimitDraft: props.editingLimitDraft,
+    limitState: props.limitState,
+    setCategoryRefreshKey: props.setCategoryRefreshKey,
+    setEditingLimitDraft: props.setEditingLimitDraft,
+    setLimitState: props.setLimitState,
+    ...props.loadingState,
+    ...getLimitDetailModeStateResult(props.modeState),
+    ...getLimitDetailSheetStateResult(props.sheetState),
   };
 }
 
@@ -1215,9 +1442,12 @@ function getLimitDetailStatePayload(
     categoryRefreshKey: state.categoryRefreshKey,
     editingLimitDraft: state.editingLimitDraft,
     hideSnackbar: () => state.setSnackbarMessage(''),
+    isBusy: state.isFetching || state.mutationCount > 0,
     isDeleteMode: state.isDeleteMode,
     isEditMode: state.isEditMode,
+    isFetching: state.isFetching,
     limitItems: state.limitState.items,
+    loadingLabel: state.loadingLabel,
     setView: state.setView,
     showSnackbar: state.setSnackbarMessage,
     snackbarMessage: state.snackbarMessage,
@@ -1232,9 +1462,12 @@ function getLimitDetailLocalStateValueSnapshot(
   return {
     categoryRefreshKey: values.categoryRefreshKey,
     editingLimitDraft: values.editingLimitDraft,
+    isFetching: values.isFetching,
     isDeleteMode: values.isDeleteMode,
     isEditMode: values.isEditMode,
     limitState: values.limitState,
+    loadingLabel: values.loadingLabel,
+    mutationCount: values.mutationCount,
     snackbarMessage: values.snackbarMessage,
     view: values.view,
   };
@@ -1244,7 +1477,10 @@ function getLimitDetailLocalStateSetters(
   setDeleteMode: Dispatch<SetStateAction<boolean>>,
   setEditMode: Dispatch<SetStateAction<boolean>>,
   setEditingLimitDraft: Dispatch<SetStateAction<EditingLimitDraft | null>>,
+  setFetching: Dispatch<SetStateAction<boolean>>,
   setLimitState: Dispatch<SetStateAction<LimitDetailState>>,
+  setLoadingLabel: Dispatch<SetStateAction<string>>,
+  setMutationCount: Dispatch<SetStateAction<number>>,
   setSnackbarMessage: Dispatch<SetStateAction<string>>,
   setView: Dispatch<SetStateAction<LimitSheetView>>,
 ) {
@@ -1252,7 +1488,10 @@ function getLimitDetailLocalStateSetters(
     setDeleteMode,
     setEditMode,
     setEditingLimitDraft,
+    setFetching,
     setLimitState,
+    setLoadingLabel,
+    setMutationCount,
     setSnackbarMessage,
     setView,
   };
@@ -1262,18 +1501,23 @@ function getLimitDetailActions(
   params: SaveLimitParams,
   state: ReturnType<typeof useLimitDetailLocalState>,
 ) {
+  const setMutationState = createLimitMutationStateSetter(
+    state.setLoadingLabel,
+    state.setMutationCount,
+  );
+
   return {
-    deleteCategory: getDeleteLimitCategoryHandler(params),
-    editCategory: getEditLimitCategoryHandler(params),
+    deleteCategory: getDeleteLimitCategoryHandler(params, setMutationState),
+    editCategory: getEditLimitCategoryHandler(params, setMutationState),
     openEditCategory: getOpenEditLimitHandler(state),
-    saveCustomCategory: getSaveCustomCategoryHandler(params),
-    saveCategory: getSaveLimitCategoryHandler(params),
+    saveCustomCategory: getSaveCustomCategoryHandler(params, setMutationState),
+    saveCategory: getSaveLimitCategoryHandler(params, setMutationState),
     toggleEditMode: getToggleLimitEditModeHandler(state),
     toggleDeleteMode: () => {
       state.setEditMode(false);
       state.setDeleteMode(value => !value);
     },
-    usePreviousMonth: getUsePreviousMonthHandler(params, state.limitState),
+    usePreviousMonth: getUsePreviousMonthHandler(params, state.limitState, setMutationState),
   };
 }
 
@@ -1301,8 +1545,11 @@ function getLimitDetailStateValue<TValue extends object>(value: TValue) {
 function getUsePreviousMonthHandler(
   params: SaveLimitParams,
   limitState: LimitDetailState,
+  setMutationState: (value: boolean, label: string) => void,
 ) {
-  return () => {
+  return async () => {
+    setMutationState(true, 'Menyalin aturan bulan sebelumnya...');
+
     copyPreviousLimitDetails(
       params.month,
       limitState.previousMonth,
@@ -1314,7 +1561,8 @@ function getUsePreviousMonthHandler(
       ))
       .catch(() => params.setSnackbarMessage(
         'Belum ada aturan bulan kemarin yang bisa dipakai.',
-      ));
+      ))
+      .finally(() => setMutationState(false, ''));
   };
 }
 
@@ -1326,27 +1574,42 @@ function handlePreviousLimitSuccess(
   onChanged();
 }
 
-function getSaveLimitCategoryHandler(params: SaveLimitParams) {
+function getSaveLimitCategoryHandler(
+  params: SaveLimitParams,
+  setMutationState: (value: boolean, label: string) => void,
+) {
   return (state: LimitCategoryFormState) => {
+    setMutationState(true, 'Menyimpan batas kategori...');
     createLimitCategory(params.month, state)
       .then(limitState => handleCreateLimitSuccess(params, limitState))
-      .catch(() => params.setSnackbarMessage('Batas kategori belum bisa disimpan.'));
+      .catch(() => params.setSnackbarMessage('Batas kategori belum bisa disimpan.'))
+      .finally(() => setMutationState(false, ''));
   };
 }
 
-function getEditLimitCategoryHandler(params: SaveLimitParams) {
+function getEditLimitCategoryHandler(
+  params: SaveLimitParams,
+  setMutationState: (value: boolean, label: string) => void,
+) {
   return (state: LimitEditFormState) => {
+    setMutationState(true, 'Menyimpan perubahan batas...');
     updateLimitCategory(params.month, state)
       .then(limitState => handleUpdateLimitSuccess(params, limitState))
-      .catch(() => params.setSnackbarMessage('Batas kategori belum bisa diperbarui.'));
+      .catch(() => params.setSnackbarMessage('Batas kategori belum bisa diperbarui.'))
+      .finally(() => setMutationState(false, ''));
   };
 }
 
-function getSaveCustomCategoryHandler(params: SaveLimitParams) {
+function getSaveCustomCategoryHandler(
+  params: SaveLimitParams,
+  setMutationState: (value: boolean, label: string) => void,
+) {
   return (state: CustomCategoryFormState) => {
+    setMutationState(true, 'Menyimpan kategori baru...');
     createCustomCategory(state)
       .then(() => handleCreateCustomCategorySuccess(params))
-      .catch(() => params.setSnackbarMessage('Kategori baru belum bisa disimpan.'));
+      .catch(() => params.setSnackbarMessage('Kategori baru belum bisa disimpan.'))
+      .finally(() => setMutationState(false, ''));
   };
 }
 
@@ -1374,12 +1637,17 @@ function getToggleLimitEditModeHandler(
   };
 }
 
-function getDeleteLimitCategoryHandler(params: SaveLimitParams) {
+function getDeleteLimitCategoryHandler(
+  params: SaveLimitParams,
+  setMutationState: (value: boolean, label: string) => void,
+) {
   return (budgetId: string) => {
     params.setLimitState(state => removeLimitDetailItem(state, budgetId));
+    setMutationState(true, 'Menghapus batas kategori...');
     deleteLimitCategory(params.month, budgetId)
       .then(limitState => handleDeleteLimitSuccess(params, limitState))
-      .catch(() => handleDeleteLimitError(params));
+      .catch(() => handleDeleteLimitError(params))
+      .finally(() => setMutationState(false, ''));
   };
 }
 
@@ -1448,15 +1716,36 @@ function handleUpdateLimitSuccess(
 function useLimitDetailRefresh(
   month: string,
   visible: boolean,
+  setFetching: (value: boolean) => void,
   setLimitState: SetLimitState,
+  setLoadingLabel: (value: string) => void,
 ) {
   useEffect(() => {
     if (visible) {
+      setLoadingLabel('Memuat batas pengeluaran...');
+      setFetching(true);
       fetchLimitDetails(month)
         .then(setLimitState)
-        .catch(() => setLimitState({ items: [] }));
+        .catch(() => setLimitState({ items: [] }))
+        .finally(() => setFetching(false));
     }
-  }, [month, visible]);
+  }, [month, setFetching, setLimitState, setLoadingLabel, visible]);
+}
+
+function createLimitMutationStateSetter(
+  setLoadingLabel: (value: string) => void,
+  setMutationCount: (setter: (value: number) => number) => void,
+) {
+  return (value: boolean, label: string) => {
+    if (value) {
+      setLoadingLabel(label);
+      setMutationCount(count => count + 1);
+
+      return;
+    }
+
+    setMutationCount(count => Math.max(count - 1, 0));
+  };
 }
 
 async function copyPreviousLimitDetails(
@@ -1566,10 +1855,12 @@ function getCreateCategoryPayload(
   };
 }
 
-function LimitDetailSheetContent(props: LimitDetailSheetContentProps) {
-  const limitSheet = useLimitDetailState(props);
-
-  return renderLimitDetailSheetView(props, limitSheet);
+function LimitDetailSheetContent(
+  props: LimitDetailSheetContentProps & {
+    limitSheet: LimitSheetState;
+  },
+) {
+  return renderLimitDetailSheetView(props, props.limitSheet);
 }
 
 function renderLimitDetailSheetView(
@@ -1598,6 +1889,7 @@ function LimitDetailCreateRoute(params: {
   return (
     <LimitCategoryCreateView
       dragHandleProps={params.props.dragHandleProps}
+      isBusy={params.limitSheet.isBusy}
       month={params.props.month}
       onClose={params.props.onClose}
       onCreateNewCategory={() => params.limitSheet.setView('category')}
@@ -1618,6 +1910,7 @@ function LimitDetailCategoryRoute(params: {
   return (
     <CustomCategoryCreateView
       dragHandleProps={params.props.dragHandleProps}
+      isBusy={params.limitSheet.isBusy}
       onClose={params.props.onClose}
       onGoBack={() => params.limitSheet.setView('create')}
       onSaveCategory={params.limitSheet.saveCustomCategory}
@@ -1633,6 +1926,7 @@ function LimitDetailEditRoute(params: {
     <LimitEditView
       draft={params.limitSheet.editingLimitDraft}
       dragHandleProps={params.props.dragHandleProps}
+      isBusy={params.limitSheet.isBusy}
       onClose={params.props.onClose}
       onGoBack={() => params.limitSheet.setView('list')}
       onSave={params.limitSheet.editCategory}
@@ -1647,8 +1941,10 @@ function LimitDetailListRoute(params: {
   return (
     <LimitDetailListView
       dragHandleProps={params.props.dragHandleProps}
+      isBusy={params.limitSheet.isBusy}
       isDeleteMode={params.limitSheet.isDeleteMode}
       isEditMode={params.limitSheet.isEditMode}
+      isFetching={params.limitSheet.isFetching}
       limitItems={params.limitSheet.limitItems}
       onCreateCategory={() => params.limitSheet.setView('create')}
       onDeleteBudget={params.limitSheet.deleteCategory}
@@ -1668,22 +1964,50 @@ function LimitDetailBottomSheet(props: {
   onClose: () => void;
   visible: boolean;
 }) {
+  return <LimitDetailBottomSheetContent {...props} />;
+}
+
+function LimitDetailBottomSheetContent(props: {
+  month: string;
+  onChanged: () => void;
+  onClose: () => void;
+  visible: boolean;
+}) {
+  const limitSheet = useLimitDetailState(props);
+
   return (
     <BottomSheet
       containerStyle={styles.limitDetailContainer}
+      disableClose={limitSheet.isBusy}
+      isLoading={limitSheet.isBusy}
+      loadingLabel={limitSheet.loadingLabel}
       onClose={props.onClose}
       visible={props.visible}
     >
-      {({ dragHandleProps }) => (
-        <LimitDetailSheetContent
-          dragHandleProps={dragHandleProps}
-          month={props.month}
-          onChanged={props.onChanged}
-          onClose={props.onClose}
-          visible={props.visible}
-        />
-      )}
+      {({ dragHandleProps }) => renderLimitDetailSheetNode(dragHandleProps, limitSheet, props)}
     </BottomSheet>
+  );
+}
+
+function renderLimitDetailSheetNode(
+  dragHandleProps: BottomSheetDragHandleProps,
+  limitSheet: LimitSheetState,
+  props: {
+    month: string;
+    onChanged: () => void;
+    onClose: () => void;
+    visible: boolean;
+  },
+) {
+  return (
+    <LimitDetailSheetContent
+      dragHandleProps={dragHandleProps}
+      limitSheet={limitSheet}
+      month={props.month}
+      onChanged={props.onChanged}
+      onClose={props.onClose}
+      visible={props.visible}
+    />
   );
 }
 
