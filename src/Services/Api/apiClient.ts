@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../../Constants';
+import { API_BASE_URL } from '../../Config';
 
 import type { ApiEnvelope, ApiErrorBody } from './api.types';
 

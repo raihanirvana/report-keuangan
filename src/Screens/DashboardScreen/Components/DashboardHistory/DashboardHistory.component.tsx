@@ -6,11 +6,11 @@ import {
   View,
 } from 'react-native';
 
+import AddTransactionSheet from '../../../../Components/AddTransactionSheet';
 import {
   BottomSheet,
   type BottomSheetDragHandleProps,
 } from '../../../../Components/BottomSheet';
-import AddTransactionSheet from '../../../../Navigation/AppTabs/AddTransactionSheet.component';
 import {
   getTransactions,
   type DashboardSummary,
