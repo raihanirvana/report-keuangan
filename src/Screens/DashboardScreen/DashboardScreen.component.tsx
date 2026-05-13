@@ -313,6 +313,7 @@ function DashboardMiddleSections(props: DashboardContentProps) {
         chartAnimationKey={props.chartAnimationKey}
         dashboardSummary={props.dashboardSummary}
         filterLabel={props.filterLabel}
+        isLoading={props.isRefreshing}
         onOpenUsagePeriod={props.onOpenUsagePeriod}
       />
     </>

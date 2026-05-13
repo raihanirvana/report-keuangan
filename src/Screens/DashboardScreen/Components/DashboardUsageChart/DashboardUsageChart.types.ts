@@ -7,6 +7,7 @@ type DashboardUsageChartProps = {
   chartAnimationKey: number;
   dashboardSummary: DashboardSummary | null;
   filterLabel: string;
+  isLoading: boolean;
   onOpenUsagePeriod: () => void;
 };
 

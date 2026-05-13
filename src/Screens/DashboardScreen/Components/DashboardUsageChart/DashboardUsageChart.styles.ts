@@ -65,6 +65,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
+  loadingSpinner: {
+    color: colors.primary,
+  },
+  loadingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 236,
+    width: '100%',
+  },
+  loadingText: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 14,
+    textAlign: 'center',
+  },
   ring: {
     alignItems: 'center',
     borderRadius: 86,
@@ -89,6 +106,9 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 12,
     fontWeight: '800',
+  },
+  sectionLinkDisabled: {
+    color: colors.slate400,
   },
   sectionTitle: {
     color: colors.slate900,

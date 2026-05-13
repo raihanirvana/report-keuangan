@@ -4,6 +4,7 @@ import {
   useState,
 } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Pressable,
@@ -42,8 +43,14 @@ function DashboardUsageChart(props: DashboardUsageChartProps) {
     <View style={styles.section}>
       <UsageSectionHeader {...props} />
       <View style={styles.card}>
-        <DonutChart animationKey={props.chartAnimationKey} chart={chart} />
-        <CategoryBreakdown categories={categories} />
+        {props.isLoading ? (
+          <UsageChartLoadingState />
+        ) : (
+          <>
+            <DonutChart animationKey={props.chartAnimationKey} chart={chart} />
+            <CategoryBreakdown categories={categories} />
+          </>
+        )}
       </View>
     </View>
   );
@@ -51,14 +58,26 @@ function DashboardUsageChart(props: DashboardUsageChartProps) {
 
 function UsageSectionHeader(props: {
   filterLabel: string;
+  isLoading: boolean;
   onOpenUsagePeriod: () => void;
 }) {
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>Penggunaan Dompet Ini</Text>
-      <Pressable onPress={props.onOpenUsagePeriod}>
-        <Text style={styles.sectionLink}>{props.filterLabel}⌄</Text>
+      <Pressable disabled={props.isLoading} onPress={props.onOpenUsagePeriod}>
+        <Text style={[styles.sectionLink, props.isLoading && styles.sectionLinkDisabled]}>
+          {props.isLoading ? 'Memuat...' : `${props.filterLabel}⌄`}
+        </Text>
       </Pressable>
+    </View>
+  );
+}
+
+function UsageChartLoadingState() {
+  return (
+    <View style={styles.loadingState}>
+      <ActivityIndicator color={styles.loadingSpinner.color} size="large" />
+      <Text style={styles.loadingText}>Memuat penggunaan dompet...</Text>
     </View>
   );
 }
