@@ -263,6 +263,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     textAlignVertical: 'top',
   },
+  titleInput: {
+    borderColor: 'rgba(255, 204, 213, 0.34)',
+    borderRadius: 16,
+    borderWidth: 1,
+    color: colors.slate900,
+    fontFamily: typography.fontFamily,
+    fontSize: 15,
+    fontWeight: '600',
+    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   notesSection: {
     marginTop: 24,
   },

@@ -24,6 +24,10 @@ async function setAuthToken(token: string) {
   await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
 }
 
+async function setAuthUser(user: AuthUser) {
+  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+}
+
 async function setAuthTokens(
   accessToken: string,
   refreshToken: string,
@@ -51,4 +55,5 @@ export {
   getRefreshToken,
   setAuthToken,
   setAuthTokens,
+  setAuthUser,
 };

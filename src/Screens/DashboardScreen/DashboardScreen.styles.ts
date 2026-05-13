@@ -3,21 +3,6 @@ import { StyleSheet } from 'react-native';
 import { colors, typography } from '../../Theme';
 
 const styles = StyleSheet.create({
-  avatar: {
-    alignItems: 'center',
-    backgroundColor: colors.accentPink,
-    borderColor: 'rgba(238, 43, 108, 0.2)',
-    borderRadius: 26,
-    borderWidth: 2,
-    height: 52,
-    justifyContent: 'center',
-    width: 52,
-  },
-  avatarText: {
-    color: colors.primary,
-    fontSize: 26,
-    fontWeight: '800',
-  },
   blueWalletAmount: {
     color: colors.secondary,
   },
@@ -143,29 +128,6 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '800',
   },
-  categoryDot: {
-    borderRadius: 6,
-    height: 12,
-    width: 12,
-  },
-  categoryItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-  },
-  categoryLabel: {
-    color: colors.slate600,
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  categoryList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'space-between',
-    width: '100%',
-  },
   confirmButton: {
     alignItems: 'center',
     backgroundColor: colors.slate900,
@@ -183,80 +145,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  chartCard: {
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderColor: 'rgba(238, 43, 108, 0.05)',
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 24,
-    shadowColor: colors.slate900,
-    shadowOffset: { height: 4, width: 0 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-  },
-  chartCenter: {
-    alignItems: 'center',
-    height: 116,
-    justifyContent: 'center',
-    position: 'absolute',
-    width: 116,
-  },
-  chartCenterLabel: {
-    color: colors.slate400,
-    fontFamily: typography.fontFamily,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  chartCenterValue: {
-    color: colors.primary,
-    fontFamily: typography.fontFamily,
-    fontSize: 18,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  chartEmptyText: {
-    color: colors.slate400,
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  chartRing: {
-    alignItems: 'center',
-    borderRadius: 86,
-    height: 172,
-    justifyContent: 'center',
-    marginBottom: 24,
-    overflow: 'hidden',
-    width: 172,
-  },
   container: {
     backgroundColor: colors.backgroundLight,
     flex: 1,
   },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: 8,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-  },
-  headerIntro: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-  },
-  hello: {
-    color: colors.primary,
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
   historyAmountExpense: {
     color: colors.primary,
+  },
+  historyAmountText: {
+    flexShrink: 0,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '800',
+    maxWidth: 118,
+    textAlign: 'right',
   },
   historyAmountIncome: {
     color: colors.secondary,
@@ -288,6 +190,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  historyCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  historyGroup: {
+    gap: 10,
+  },
+  historyGroupTitle: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+  },
   historyIcon: {
     fontSize: 22,
   },
@@ -304,9 +222,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 24,
     flexDirection: 'row',
+    gap: 12,
     justifyContent: 'space-between',
     minHeight: 74,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     paddingVertical: 14,
   },
   historyList: {
@@ -314,8 +233,10 @@ const styles = StyleSheet.create({
   },
   historyLeft: {
     alignItems: 'center',
+    flex: 1,
     flexDirection: 'row',
     gap: 12,
+    minWidth: 0,
   },
   historyMeta: {
     color: colors.slate400,
@@ -329,31 +250,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  iconButton: {
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderColor: 'rgba(238, 43, 108, 0.1)',
-    borderRadius: 16,
-    borderWidth: 1,
-    height: 46,
-    justifyContent: 'center',
-    width: 46,
-  },
-  iconButtonDot: {
-    backgroundColor: colors.primary,
-    borderColor: colors.white,
-    borderRadius: 4,
-    borderWidth: 1,
-    height: 8,
-    position: 'absolute',
-    right: 11,
-    top: 11,
-    width: 8,
-  },
-  iconButtonText: {
-    color: colors.primary,
-    fontSize: 22,
-  },
   colorSwatch: {
     borderColor: colors.white,
     borderRadius: 16,
@@ -366,28 +262,6 @@ const styles = StyleSheet.create({
     shadowOffset: { height: 4, width: 0 },
     shadowOpacity: 0.14,
     shadowRadius: 8,
-  },
-  logoutButton: {
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderColor: 'rgba(238, 43, 108, 0.12)',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    minHeight: 46,
-    paddingHorizontal: 12,
-  },
-  logoutIcon: {
-    color: colors.primary,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  logoutText: {
-    color: colors.primary,
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '800',
   },
   blueLimitProgress: {
     backgroundColor: colors.secondary,
@@ -418,9 +292,12 @@ const styles = StyleSheet.create({
     lineHeight: 42,
   },
   fullHistoryAmount: {
+    flexShrink: 0,
     fontFamily: typography.fontFamily,
     fontSize: 18,
     fontWeight: '800',
+    maxWidth: 148,
+    textAlign: 'right',
   },
   fullHistoryAmountExpense: {
     color: colors.slate900,
@@ -625,6 +502,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  fullHistoryPeriodContent: {
+    gap: 16,
+    paddingBottom: 32,
+    paddingHorizontal: 24,
+  },
   fullHistoryTitle: {
     color: colors.slate900,
     fontFamily: typography.fontFamily,
@@ -706,9 +588,7 @@ const styles = StyleSheet.create({
     width: 56,
   },
   limitDetailHeader: {
-    alignItems: 'center',
     marginBottom: 30,
-    position: 'relative',
   },
   limitDetailIcon: {
     fontSize: 24,
@@ -762,6 +642,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 6,
+  },
+  limitDetailTitleCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  limitDetailTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    justifyContent: 'space-between',
   },
   limitSecondaryButton: {
     alignItems: 'center',
@@ -817,9 +707,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   limitHeaderAction: {
-    position: 'absolute',
-    right: 0,
-    top: 22,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   limitIcon: {
     color: colors.primary,
@@ -857,14 +747,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: '100%',
   },
-  name: {
-    color: colors.slate900,
-    fontFamily: typography.fontFamily,
-    fontSize: 18,
-    fontWeight: '800',
+  mainContent: {
+    flex: 1,
   },
   pageContent: {
-    paddingBottom: 32,
+    flexGrow: 1,
+    paddingBottom: 120,
+  },
+  pageScroll: {
+    flex: 1,
   },
   periodContent: {
     gap: 16,
@@ -1077,49 +968,6 @@ const styles = StyleSheet.create({
   },
   sheetTitleArea: {
     flex: 1,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    gap: 18,
-    marginTop: 28,
-    paddingHorizontal: 24,
-  },
-  summaryCard: {
-    alignItems: 'flex-start',
-    flex: 1,
-    gap: 12,
-  },
-  summaryIcon: {
-    color: colors.white,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  summaryIconBox: {
-    alignItems: 'center',
-    borderRadius: 18,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  summaryLabel: {
-    color: colors.slate600,
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '800',
-    lineHeight: 16,
-  },
-  summaryPeriod: {
-    color: colors.slate400,
-    fontFamily: typography.fontFamily,
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: -8,
-  },
-  summaryValue: {
-    color: colors.slate900,
-    fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '800',
   },
   transactionAmount: {
     fontFamily: typography.fontFamily,

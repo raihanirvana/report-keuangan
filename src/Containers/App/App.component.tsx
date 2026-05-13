@@ -22,6 +22,7 @@ import {
   clearAuthToken,
   getAuthToken,
   getAuthUser,
+  setAuthUser,
 } from '../../Utils/authStorage';
 
 import styles from './App.styles';
@@ -39,6 +40,7 @@ type AppContentProps = {
   isSplashVisible: boolean;
   onLogin: (user: AuthUser) => void;
   onLogout: () => void;
+  onUpdateUser: (user: AuthUser) => void;
   user: AuthUser | null;
 };
 
@@ -62,7 +64,13 @@ function AppContent(props: AppContentProps) {
     return <LoginScreen onLogin={props.onLogin} />;
   }
 
-  return <DashboardScreen onLogout={props.onLogout} user={props.user} />;
+  return (
+    <DashboardScreen
+      onLogout={props.onLogout}
+      onUpdateUser={props.onUpdateUser}
+      user={props.user}
+    />
+  );
 }
 
 function SessionExpiredModal(props: SessionExpiredModalProps) {
@@ -220,6 +228,13 @@ function createLoginHandler(auth: AuthBootstrap) {
   };
 }
 
+function createUpdateUserHandler(auth: AuthBootstrap) {
+  return (user: AuthUser) => {
+    auth.setUser(user);
+    setAuthUser(user).catch(() => undefined);
+  };
+}
+
 function AppSafeContent(props: {
   auth: AuthBootstrap;
   safeAreaStyle: ReturnType<typeof getSafeAreaStyle>;
@@ -231,6 +246,7 @@ function AppSafeContent(props: {
         isSplashVisible={props.auth.isSplashVisible}
         onLogin={createLoginHandler(props.auth)}
         onLogout={createLogoutHandler(props.auth)}
+        onUpdateUser={createUpdateUserHandler(props.auth)}
         user={props.auth.user}
       />
     </SafeAreaView>

@@ -23,8 +23,10 @@ import {
   createTransaction,
   getCategories,
   getWallets,
+  updateTransaction,
   type Category,
   type CreateTransactionPayload,
+  type Transaction,
   type TransactionType,
   type Wallet,
 } from '../../Services';
@@ -39,6 +41,7 @@ type SheetStep = 'confirm' | 'form';
 type AddTransactionSheetProps = {
   onChanged?: () => void;
   onClose: () => void;
+  transaction?: Transaction | null;
   visible: boolean;
 };
 type SheetState = {
@@ -50,6 +53,7 @@ type SheetState = {
   selectedCategoryId: string;
   selectedWalletId: string;
   step: SheetStep;
+  title: string;
   toWalletId: string;
   type: TransactionTab;
   wallets: Wallet[];
@@ -62,6 +66,7 @@ type SheetSetters = {
   setSelectedCategoryId: (value: string) => void;
   setSelectedWalletId: (value: string) => void;
   setStep: (value: SheetStep) => void;
+  setTitle: (value: string) => void;
   setToWalletId: (value: string) => void;
   setType: (value: TransactionTab) => void;
 };
@@ -353,6 +358,24 @@ function NotesField(props: {
   );
 }
 
+function TitleField(props: {
+  onChangeTitle: (value: string) => void;
+  title: string;
+}) {
+  return (
+    <View style={styles.notesSection}>
+      <Text style={styles.sectionTitle}>Judul (Optional)</Text>
+      <TextInput
+        onChangeText={props.onChangeTitle}
+        placeholder="Contoh: Makan siang, Gaji, Nabung..."
+        placeholderTextColor="#94A3B8"
+        style={styles.titleInput}
+        value={props.title}
+      />
+    </View>
+  );
+}
+
 function SheetBody(props: {
   setters: SheetSetters;
   state: SheetState;
@@ -374,17 +397,33 @@ function FormContent(props: {
         activeType={props.state.type}
         onChangeType={props.setters.setType}
       />
+      <TransactionFormFields isTransfer={isTransfer} {...props} />
+    </ScrollView>
+  );
+}
+
+function TransactionFormFields(props: {
+  isTransfer: boolean;
+  setters: SheetSetters;
+  state: SheetState;
+}) {
+  return (
+    <>
       <AmountInput
         amount={props.state.amount}
         onChangeAmount={props.setters.setAmount}
       />
-      <TransactionControls isTransfer={isTransfer} {...props} />
+      <TransactionControls {...props} />
+      <TitleField
+        onChangeTitle={props.setters.setTitle}
+        title={props.state.title}
+      />
       <NotesField
         note={props.state.note}
         onChangeNote={props.setters.setNote}
-        placeholder={getNotePlaceholder(isTransfer)}
+        placeholder={getNotePlaceholder(props.isTransfer)}
       />
-    </ScrollView>
+    </>
   );
 }
 
@@ -460,6 +499,7 @@ function AddTransactionSheet(props: AddTransactionSheetProps) {
       {({ dragHandleProps }) => (
         <SheetLayout
           dragHandleProps={dragHandleProps}
+          isEditMode={Boolean(props.transaction)}
           onClose={props.onClose}
           onHideSnackbar={() => sheet.setters.setErrorMessage('')}
           onReturnToForm={() => sheet.setters.setStep('form')}
@@ -475,6 +515,7 @@ function AddTransactionSheet(props: AddTransactionSheetProps) {
 
 function SheetLayout(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  isEditMode: boolean;
   onClose: () => void;
   onHideSnackbar: () => void;
   onReturnToForm: () => void;
@@ -523,6 +564,7 @@ function SheetContentSection(props: {
 function getSheetHeaderSectionProps(
   props: {
     dragHandleProps: BottomSheetDragHandleProps;
+    isEditMode: boolean;
     onClose: () => void;
     onReturnToForm: () => void;
   },
@@ -531,6 +573,7 @@ function getSheetHeaderSectionProps(
   return {
     dragHandleProps: props.dragHandleProps,
     isConfirmStep,
+    isEditMode: props.isEditMode,
     onClose: props.onClose,
     onReturnToForm: props.onReturnToForm,
   };
@@ -561,6 +604,7 @@ function getSheetContentSectionProps(
 function SheetHeaderSection(props: {
   dragHandleProps: BottomSheetDragHandleProps;
   isConfirmStep: boolean;
+  isEditMode: boolean;
   onClose: () => void;
   onReturnToForm: () => void;
 }) {
@@ -569,9 +613,17 @@ function SheetHeaderSection(props: {
       dragHandleProps={props.dragHandleProps}
       onClose={props.onClose}
       onGoBack={props.isConfirmStep ? props.onReturnToForm : undefined}
-      title={props.isConfirmStep ? 'Confirm Transaction' : 'Add Transaction'}
+      title={getSheetTitle(props.isConfirmStep, props.isEditMode)}
     />
   );
+}
+
+function getSheetTitle(isConfirmStep: boolean, isEditMode: boolean) {
+  if (isConfirmStep) {
+    return isEditMode ? 'Confirm Update' : 'Confirm Transaction';
+  }
+
+  return isEditMode ? 'Edit Transaction' : 'Add Transaction';
 }
 
 function SheetFooterSection(props: {
@@ -590,12 +642,13 @@ function SheetFooterSection(props: {
 }
 
 function useAddTransactionSheet(props: AddTransactionSheetProps) {
-  const [state, setState] = useState(getInitialState());
+  const [state, setState] = useState(() => getInitialState(props.transaction));
   const setters = getSheetSetters(setState);
   const hydratedState = getHydratedState(state);
 
-  useSheetOptions(props.visible, state.type, setState);
-  useResetSheetStateOnClose(props.visible, setState);
+  useSheetOptions(props.visible, state.type, props.transaction, setState);
+  useInitializeSheetOnOpen(props.visible, props.transaction, setState);
+  useResetSheetStateOnClose(props.visible, props.transaction, setState);
 
   return {
     setters,
@@ -605,43 +658,74 @@ function useAddTransactionSheet(props: AddTransactionSheetProps) {
   };
 }
 
-function useSheetOptions(
+function useInitializeSheetOnOpen(
   visible: boolean,
-  type: TransactionTab,
+  transaction: Transaction | null | undefined,
   setState: Dispatch<SetStateAction<SheetState>>,
 ) {
   useEffect(() => {
     if (visible) {
-      loadSheetOptions(setState, type);
+      setState(value => ({
+        ...getInitialState(transaction),
+        categories: value.categories,
+        wallets: value.wallets,
+      }));
     }
-  }, [setState, type, visible]);
+  }, [setState, transaction?.id, visible]);
+}
+
+function useSheetOptions(
+  visible: boolean,
+  type: TransactionTab,
+  transaction: Transaction | null | undefined,
+  setState: Dispatch<SetStateAction<SheetState>>,
+) {
+  useEffect(() => {
+    if (visible) {
+      loadSheetOptions(setState, type, transaction);
+    }
+  }, [setState, transaction, type, visible]);
 }
 
 function useResetSheetStateOnClose(
   visible: boolean,
+  transaction: Transaction | null | undefined,
   setState: Dispatch<SetStateAction<SheetState>>,
 ) {
   useEffect(() => {
     if (!visible) {
-      setState(getInitialState());
+      setState(getInitialState(transaction));
     }
-  }, [setState, visible]);
+  }, [setState, transaction, visible]);
 }
 
-function getInitialState(): SheetState {
+function getInitialState(transaction?: Transaction | null): SheetState {
   return {
-    amount: '',
+    amount: transaction ? formatMoneyInput(String(transaction.amount)) : '',
     categories: [],
     errorMessage: '',
     fromWalletId: '',
-    note: '',
-    selectedCategoryId: '',
+    note: transaction?.note ?? '',
+    selectedCategoryId: transaction?.category?.id ?? '',
     selectedWalletId: '',
     step: 'form',
+    title: transaction?.title ?? '',
     toWalletId: '',
-    type: 'Pengeluaran',
+    type: getTransactionTab(transaction),
     wallets: [],
   };
+}
+
+function getTransactionTab(transaction?: Transaction | null): TransactionTab {
+  if (transaction?.type === 'INCOME') {
+    return 'Pemasukan';
+  }
+
+  if (transaction?.type === 'TRANSFER') {
+    return 'Pindah Dana';
+  }
+
+  return 'Pengeluaran';
 }
 
 function getSheetSetters(setState: Dispatch<SetStateAction<SheetState>>) {
@@ -653,6 +737,7 @@ function getSheetSetters(setState: Dispatch<SetStateAction<SheetState>>) {
     setSelectedCategoryId: (selectedCategoryId: string) => setState(value => ({ ...value, selectedCategoryId })),
     setSelectedWalletId: (selectedWalletId: string) => setState(value => ({ ...value, selectedWalletId })),
     setStep: (step: SheetStep) => setState(value => ({ ...value, step })),
+    setTitle: (title: string) => setState(value => ({ ...value, title })),
     setToWalletId: (toWalletId: string) => setState(value => ({ ...value, toWalletId })),
     setType: (type: TransactionTab) => setState(value => ({
       ...value,
@@ -692,6 +777,7 @@ function getEffectiveToWalletId(state: SheetState) {
 async function loadSheetOptions(
   setState: Dispatch<SetStateAction<SheetState>>,
   type: TransactionTab,
+  transaction?: Transaction | null,
 ) {
   const token = await getAuthToken();
 
@@ -707,8 +793,33 @@ async function loadSheetOptions(
   setState(value => ({
     ...value,
     categories: categories.data,
+    ...getTransactionSelectionDefaults(transaction, wallets.data, categories.data),
     wallets: wallets.data,
   }));
+}
+
+function getTransactionSelectionDefaults(
+  transaction: Transaction | null | undefined,
+  wallets: Wallet[],
+  categories: Category[],
+) {
+  if (!transaction) {
+    return {};
+  }
+
+  return {
+    fromWalletId: findWalletIdByName(wallets, transaction.fromWallet?.name),
+    selectedCategoryId:
+      categories.find(category => category.id === transaction.category?.id)?.id
+      ?? categories[0]?.id
+      ?? '',
+    selectedWalletId: findWalletIdByName(wallets, transaction.wallet?.name),
+    toWalletId: findWalletIdByName(wallets, transaction.toWallet?.name),
+  };
+}
+
+function findWalletIdByName(wallets: Wallet[], walletName?: string) {
+  return wallets.find(wallet => wallet.name === walletName)?.id ?? '';
 }
 
 function handlePrimaryAction(
@@ -739,8 +850,8 @@ async function submitTransaction(
   }
 
   try {
-    await submitTransactionRequest(state);
-    setState(getInitialState());
+    await submitTransactionRequest(state, props.transaction);
+    setState(getInitialState(props.transaction));
     props.onChanged?.();
     props.onClose();
   } catch (error) {
@@ -766,14 +877,21 @@ function canSubmitTransaction(
   return false;
 }
 
-async function submitTransactionRequest(state: SheetState) {
+async function submitTransactionRequest(
+  state: SheetState,
+  transaction?: Transaction | null,
+) {
   const token = await getAuthToken();
 
   if (!token) {
     throw new Error('Sesi login kamu belum tersedia.');
   }
 
-  return createTransaction(token, getTransactionPayload(state));
+  const payload = getTransactionPayload(state);
+
+  return transaction
+    ? updateTransaction(token, transaction.id, payload)
+    : createTransaction(token, payload);
 }
 
 function getTransactionPayload(state: SheetState): CreateTransactionPayload {
@@ -789,7 +907,7 @@ function getIncomeExpensePayload(state: SheetState): CreateTransactionPayload {
     amount: parseMoneyInput(state.amount),
     categoryId: state.selectedCategoryId,
     note: normalizeNote(state.note),
-    title: getSelectedCategory(state)?.name ?? state.type,
+    title: getTransactionTitle(state),
     type: getApiTransactionType(state.type),
     walletId: state.selectedWalletId,
   };
@@ -800,10 +918,22 @@ function getTransferPayload(state: SheetState): CreateTransactionPayload {
     amount: parseMoneyInput(state.amount),
     fromWalletId: state.fromWalletId,
     note: normalizeNote(state.note),
-    title: 'Pindah Dana',
+    title: getTransactionTitle(state),
     toWalletId: state.toWalletId,
     type: 'TRANSFER',
   };
+}
+
+function getTransactionTitle(state: SheetState) {
+  const normalizedTitle = normalizeTitle(state.title);
+
+  if (normalizedTitle) {
+    return normalizedTitle;
+  }
+
+  return state.type === 'Pindah Dana'
+    ? 'Pindah Dana'
+    : getSelectedCategory(state)?.name ?? state.type;
 }
 
 function getApiTransactionType(type: TransactionTab): TransactionType {
@@ -848,6 +978,10 @@ function normalizeNote(note: string) {
   const trimmedNote = note.trim();
 
   return trimmedNote ? trimmedNote : undefined;
+}
+
+function normalizeTitle(title: string) {
+  return title.trim();
 }
 
 function getValidationMessage(state: SheetState) {
@@ -947,6 +1081,7 @@ function getSummaryRows(state: SheetState) {
   const amountValue = `Rp ${formatMoneyInput(state.amount || '0') || '0'}`;
   const sharedRows = [
     { label: 'Tipe', value: state.type },
+    { label: 'Judul', value: getTransactionTitle(state) },
     { label: 'Nominal', value: amountValue },
   ];
 

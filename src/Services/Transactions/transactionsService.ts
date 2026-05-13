@@ -4,6 +4,7 @@ import type {
   CreateTransactionPayload,
   Transaction,
   TransactionsQuery,
+  UpdateTransactionPayload,
 } from './transactions.types';
 
 function getTransactions(token: string, query: TransactionsQuery = {}) {
@@ -35,7 +36,20 @@ function createTransaction(token: string, payload: CreateTransactionPayload) {
   });
 }
 
+function updateTransaction(
+  token: string,
+  transactionId: string,
+  payload: UpdateTransactionPayload,
+) {
+  return apiRequest<Transaction>(`/transactions/${transactionId}`, {
+    body: payload,
+    method: 'PATCH',
+    token,
+  });
+}
+
 export {
   createTransaction,
   getTransactions,
+  updateTransaction,
 };

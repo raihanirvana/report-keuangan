@@ -44,6 +44,10 @@ type CreateTransactionPayload = {
   walletId?: string;
 };
 
+type UpdateTransactionPayload = Partial<CreateTransactionPayload> & {
+  occurredAt?: string;
+};
+
 export type {
   CreateTransactionPayload,
   Transaction,
@@ -51,4 +55,5 @@ export type {
   TransactionsQuery,
   TransactionType,
   TransactionWallet,
+  UpdateTransactionPayload,
 };
