@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   Text,
@@ -19,7 +20,6 @@ import {
 } from '../../../../Services';
 import { getAuthToken } from '../../../../Utils/authStorage';
 import { monthOptions } from '../../DashboardScreen.data';
-import styles from '../../DashboardScreen.styles';
 import type {
   FullHistoryGroupData,
   HistoryFilter,
@@ -28,6 +28,7 @@ import type {
   PeriodState,
 } from '../../DashboardScreen.types';
 
+import styles from './DashboardHistory.styles';
 import type {
   DashboardHistoryProps,
   FullHistoryBottomSheetProps,
@@ -41,6 +42,7 @@ function DashboardHistory(props: DashboardHistoryProps) {
     <>
       <HistorySection
         histories={props.histories}
+        isLoading={props.isLoading}
         onEditTransaction={edit.setEditingTransaction}
         onOpenFullHistory={props.onOpenFullHistory}
       />
@@ -92,6 +94,7 @@ function HistoryEditSheet(props: {
 
 function HistorySection(props: {
   histories: HistoryItemData[];
+  isLoading: boolean;
   onEditTransaction: (transaction: Transaction) => void;
   onOpenFullHistory: () => void;
 }) {
@@ -107,6 +110,7 @@ function HistorySection(props: {
       </View>
       <HistoryList
         histories={props.histories}
+        isLoading={props.isLoading}
         onEditTransaction={props.onEditTransaction}
       />
     </View>
@@ -115,23 +119,49 @@ function HistorySection(props: {
 
 function HistoryList(props: {
   histories: HistoryItemData[];
+  isLoading: boolean;
   onEditTransaction: (transaction: Transaction) => void;
 }) {
   const groups = groupHistoryItems(props.histories);
 
-  if (!groups.length) {
+  return renderHistoryListContent({
+    groups,
+    isLoading: props.isLoading,
+    onEditTransaction: props.onEditTransaction,
+  });
+}
+
+function renderHistoryListContent(params: {
+  groups: FullHistoryGroupData[];
+  isLoading: boolean;
+  onEditTransaction: (transaction: Transaction) => void;
+}) {
+  if (params.isLoading) {
+    return <HistoryLoadingState />;
+  }
+
+  if (!params.groups.length) {
     return <HistoryEmptyState />;
   }
 
   return (
     <View style={styles.historyList}>
-      {groups.map(group => (
+      {params.groups.map(group => (
         <HistoryGroup
           group={group}
           key={group.id}
-          onEditTransaction={props.onEditTransaction}
+          onEditTransaction={params.onEditTransaction}
         />
       ))}
+    </View>
+  );
+}
+
+function HistoryLoadingState() {
+  return (
+    <View style={styles.historyLoadingState}>
+      <ActivityIndicator color={styles.historyLoadingSpinner.color} size="small" />
+      <Text style={styles.historyLoadingText}>Memuat histori...</Text>
     </View>
   );
 }
@@ -214,11 +244,11 @@ function HistoryItemAmount(props: {
 }
 
 function FullHistoryBottomSheet(props: FullHistoryBottomSheetProps) {
-  const groups = useFullHistoryGroups(props);
+  const fullHistory = useFullHistoryGroups(props);
   const {
     closeSheet,
     renderSheetView,
-  } = useFullHistorySheetRenderer(props, groups);
+  } = useFullHistorySheetRenderer(props, fullHistory);
 
   return (
     <BottomSheet
@@ -233,7 +263,7 @@ function FullHistoryBottomSheet(props: FullHistoryBottomSheetProps) {
 
 function useFullHistorySheetRenderer(
   props: FullHistoryBottomSheetProps,
-  groups: FullHistoryGroupData[],
+  fullHistory: FullHistoryState,
 ) {
   const {
     closeSheet,
@@ -246,7 +276,7 @@ function useFullHistorySheetRenderer(
     closeSheet,
     renderSheetView: getFullHistoryViewRenderer({
       closeSheet,
-      groups,
+      fullHistory,
       openPeriod,
       props,
       showList,
@@ -257,7 +287,7 @@ function useFullHistorySheetRenderer(
 
 function getFullHistoryViewRenderer(params: {
   closeSheet: () => void;
-  groups: FullHistoryGroupData[];
+  fullHistory: FullHistoryState;
   openPeriod: () => void;
   props: FullHistoryBottomSheetProps;
   showList: () => void;
@@ -292,7 +322,7 @@ function renderFullHistoryPeriod(
 
 function renderFullHistoryList(
   params: {
-    groups: FullHistoryGroupData[];
+    fullHistory: FullHistoryState;
     openPeriod: () => void;
     props: FullHistoryBottomSheetProps;
   },
@@ -301,7 +331,8 @@ function renderFullHistoryList(
   return (
     <FullHistorySheetContent
       dragHandleProps={dragHandleProps}
-      groups={params.groups}
+      groups={params.fullHistory.groups}
+      isLoading={params.fullHistory.isLoading}
       monthLabel={params.props.historyMonthLabel}
       onEditTransaction={params.props.onEditTransaction}
       onPressMonth={params.openPeriod}
@@ -328,6 +359,7 @@ function useFullHistorySheetViewState(props: FullHistoryBottomSheetProps) {
 function FullHistorySheetContent(props: {
   dragHandleProps: BottomSheetDragHandleProps;
   groups: FullHistoryGroupData[];
+  isLoading: boolean;
   monthLabel: string;
   onEditTransaction: (transaction: Transaction) => void;
   onPressMonth: () => void;
@@ -442,6 +474,7 @@ function HistoryFilterChip(props: {
 
 function FullHistoryContent(props: {
   groups: FullHistoryGroupData[];
+  isLoading: boolean;
   onEditTransaction: (transaction: Transaction) => void;
   selectedFilter: HistoryFilter;
 }) {
@@ -449,7 +482,7 @@ function FullHistoryContent(props: {
 
   return (
     <ScrollView contentContainerStyle={styles.fullHistoryContent}>
-      {hasData ? props.groups.map(group => (
+      {props.isLoading ? <FullHistoryLoadingState /> : hasData ? props.groups.map(group => (
         <FullHistoryGroup
           group={group}
           key={group.id}
@@ -458,6 +491,15 @@ function FullHistoryContent(props: {
         />
       )) : <FullHistoryEmptyState />}
     </ScrollView>
+  );
+}
+
+function FullHistoryLoadingState() {
+  return (
+    <View style={styles.fullHistoryLoadingState}>
+      <ActivityIndicator color={styles.historyLoadingSpinner.color} size="large" />
+      <Text style={styles.historyLoadingText}>Memuat histori lengkap...</Text>
+    </View>
   );
 }
 
@@ -729,6 +771,11 @@ function PeriodOption(props: {
   );
 }
 
+type FullHistoryState = {
+  groups: FullHistoryGroupData[];
+  isLoading: boolean;
+};
+
 function useFullHistoryGroups(props: {
   historyMonth: string;
   isFullHistoryVisible: boolean;
@@ -736,21 +783,61 @@ function useFullHistoryGroups(props: {
   selectedHistoryFilter: HistoryFilter;
 }) {
   const [groups, setGroups] = useState<FullHistoryGroupData[]>([]);
+  const [isLoading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (props.isFullHistoryVisible) {
-      fetchFullHistoryGroups(props.historyMonth, props.selectedHistoryFilter)
-        .then(setGroups)
-        .catch(() => setGroups([]));
-    }
-  }, [
-    props.historyMonth,
-    props.isFullHistoryVisible,
-    props.refreshKey,
-    props.selectedHistoryFilter,
-  ]);
+  useEffect(
+    () => createFullHistoryLoadEffect(props, setGroups, setLoading),
+    [
+      props.historyMonth,
+      props.isFullHistoryVisible,
+      props.refreshKey,
+      props.selectedHistoryFilter,
+    ],
+  );
 
-  return groups;
+  return { groups, isLoading };
+}
+
+function createFullHistoryLoadEffect(
+  props: {
+    historyMonth: string;
+    isFullHistoryVisible: boolean;
+    selectedHistoryFilter: HistoryFilter;
+  },
+  setGroups: (groups: FullHistoryGroupData[]) => void,
+  setLoading: (value: boolean) => void,
+) {
+  let isMounted = true;
+
+  if (props.isFullHistoryVisible) {
+    loadFullHistoryGroups({
+      filter: props.selectedHistoryFilter,
+      month: props.historyMonth,
+      setGroups: items => isMounted && setGroups(items),
+      setLoading: value => isMounted && setLoading(value),
+    }).catch(() => undefined);
+  }
+
+  return () => {
+    isMounted = false;
+  };
+}
+
+async function loadFullHistoryGroups(params: {
+  filter: HistoryFilter;
+  month: string;
+  setGroups: (groups: FullHistoryGroupData[]) => void;
+  setLoading: (value: boolean) => void;
+}) {
+  params.setLoading(true);
+
+  try {
+    params.setGroups(await fetchFullHistoryGroups(params.month, params.filter));
+  } catch {
+    params.setGroups([]);
+  } finally {
+    params.setLoading(false);
+  }
 }
 
 async function fetchFullHistoryGroups(month: string, filter: HistoryFilter) {

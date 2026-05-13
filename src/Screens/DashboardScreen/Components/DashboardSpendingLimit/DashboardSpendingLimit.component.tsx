@@ -40,7 +40,6 @@ import {
   categoryColorPresets,
   categoryIconPresets,
 } from '../../DashboardScreen.data';
-import styles from '../../DashboardScreen.styles';
 import type {
   CustomCategoryFormState,
   EditingLimitDraft,
@@ -58,6 +57,8 @@ import type {
   SaveLimitParams,
   SetLimitState,
 } from '../../DashboardScreen.types';
+
+import styles from './DashboardSpendingLimit.styles';
 
 function SpendingLimitSection(props: {
   dashboardSummary: DashboardSummary | null;

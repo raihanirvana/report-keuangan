@@ -335,6 +335,7 @@ function DashboardFooterSections(props: DashboardContentProps) {
         historyMonthLabel={props.historyMonthLabel}
         historyPeriod={props.historyPeriod}
         isFullHistoryVisible={props.isFullHistoryVisible}
+        isLoading={props.isRefreshing}
         onChanged={props.onChanged}
         onCloseFullHistory={props.onCloseFullHistory}
         onOpenFullHistory={() => props.onOpenFullHistory()}

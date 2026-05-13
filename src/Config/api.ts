@@ -1,9 +1,4 @@
-import { Platform } from 'react-native';
-
-const API_HOST = Platform.select({
-  android: 'http://localhost:3000',
-  default: 'http://localhost:3000',
-});
+const API_HOST = 'https://be-report-keuangan.onrender.com';
 
 const API_BASE_URL = `${API_HOST}/v1`;
 

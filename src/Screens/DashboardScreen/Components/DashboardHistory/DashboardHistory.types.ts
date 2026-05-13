@@ -16,6 +16,7 @@ type DashboardHistoryProps = {
   historyMonthLabel: string;
   historyPeriod: PeriodState;
   isFullHistoryVisible: boolean;
+  isLoading: boolean;
   onChanged: () => void;
   onCloseFullHistory: () => void;
   onOpenFullHistory: () => void;
