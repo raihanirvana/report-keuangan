@@ -143,8 +143,23 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     paddingTop: 14,
   },
+  deleteButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(238, 43, 108, 0.08)',
+    borderColor: 'rgba(238, 43, 108, 0.24)',
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingVertical: 14,
+  },
+  deleteButtonText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '800',
+  },
   content: {
-    paddingBottom: 116,
+    paddingBottom: 176,
     paddingHorizontal: 24,
   },
   confirmationCard: {

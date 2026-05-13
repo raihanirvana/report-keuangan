@@ -21,6 +21,7 @@ import {
 import { Snackbar } from '../../Components/Snackbar';
 import {
   createTransaction,
+  deleteTransaction,
   getCategories,
   getWallets,
   updateTransaction,
@@ -33,43 +34,15 @@ import {
 import { getAuthToken } from '../../Utils/authStorage';
 
 import styles from './AddTransactionSheet.styles';
+import type {
+  AddTransactionSheetProps,
+  SheetSetters,
+  SheetState,
+  SheetStep,
+  TransactionTab,
+} from './AddTransactionSheet.types';
 
 const transactionTypes = ['Pengeluaran', 'Pemasukan', 'Pindah Dana'] as const;
-
-type TransactionTab = (typeof transactionTypes)[number];
-type SheetStep = 'confirm' | 'form';
-type AddTransactionSheetProps = {
-  onChanged?: () => void;
-  onClose: () => void;
-  transaction?: Transaction | null;
-  visible: boolean;
-};
-type SheetState = {
-  amount: string;
-  categories: Category[];
-  errorMessage: string;
-  fromWalletId: string;
-  note: string;
-  selectedCategoryId: string;
-  selectedWalletId: string;
-  step: SheetStep;
-  title: string;
-  toWalletId: string;
-  type: TransactionTab;
-  wallets: Wallet[];
-};
-type SheetSetters = {
-  setAmount: (value: string) => void;
-  setErrorMessage: (value: string) => void;
-  setFromWalletId: (value: string) => void;
-  setNote: (value: string) => void;
-  setSelectedCategoryId: (value: string) => void;
-  setSelectedWalletId: (value: string) => void;
-  setStep: (value: SheetStep) => void;
-  setTitle: (value: string) => void;
-  setToWalletId: (value: string) => void;
-  setType: (value: TransactionTab) => void;
-};
 
 function SheetHeader(props: {
   dragHandleProps: BottomSheetDragHandleProps;
@@ -469,21 +442,56 @@ function TransactionControls(props: {
 
 function SheetFooter(props: {
   buttonLabel: string;
+  destructiveLabel?: string;
+  onDestructiveAction?: () => void;
   onSecondaryAction?: () => void;
   onSubmit: () => void;
   secondaryLabel?: string;
 }) {
   return (
     <View style={styles.footer}>
-      {!!props.onSecondaryAction && !!props.secondaryLabel && (
-        <Pressable onPress={props.onSecondaryAction} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>{props.secondaryLabel}</Text>
-        </Pressable>
-      )}
-      <Pressable onPress={props.onSubmit} style={styles.saveButton}>
-        <Text style={styles.saveText}>{props.buttonLabel}</Text>
-      </Pressable>
+      <DeleteFooterButton
+        label={props.destructiveLabel}
+        onPress={props.onDestructiveAction}
+      />
+      <SecondaryFooterButton
+        label={props.secondaryLabel}
+        onPress={props.onSecondaryAction}
+      />
+      <PrimaryFooterButton label={props.buttonLabel} onPress={props.onSubmit} />
     </View>
+  );
+}
+
+function DeleteFooterButton(props: { label?: string; onPress?: () => void }) {
+  if (!props.label || !props.onPress) {
+    return null;
+  }
+
+  return (
+    <Pressable onPress={props.onPress} style={styles.deleteButton}>
+      <Text style={styles.deleteButtonText}>{props.label}</Text>
+    </Pressable>
+  );
+}
+
+function SecondaryFooterButton(props: { label?: string; onPress?: () => void }) {
+  if (!props.label || !props.onPress) {
+    return null;
+  }
+
+  return (
+    <Pressable onPress={props.onPress} style={styles.secondaryButton}>
+      <Text style={styles.secondaryButtonText}>{props.label}</Text>
+    </Pressable>
+  );
+}
+
+function PrimaryFooterButton(props: { label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={props.onPress} style={styles.saveButton}>
+      <Text style={styles.saveText}>{props.label}</Text>
+    </Pressable>
   );
 }
 
@@ -496,20 +504,29 @@ function AddTransactionSheet(props: AddTransactionSheetProps) {
       onClose={props.onClose}
       visible={props.visible}
     >
-      {({ dragHandleProps }) => (
-        <SheetLayout
-          dragHandleProps={dragHandleProps}
-          isEditMode={Boolean(props.transaction)}
-          onClose={props.onClose}
-          onHideSnackbar={() => sheet.setters.setErrorMessage('')}
-          onReturnToForm={() => sheet.setters.setStep('form')}
-          onSubmit={sheet.submit}
-          snackbarMessage={sheet.snackbarMessage}
-          state={sheet.state}
-          setters={sheet.setters}
-        />
-      )}
+      {({ dragHandleProps }) => renderSheetLayout(props, sheet, dragHandleProps)}
     </BottomSheet>
+  );
+}
+
+function renderSheetLayout(
+  props: AddTransactionSheetProps,
+  sheet: ReturnType<typeof useAddTransactionSheet>,
+  dragHandleProps: BottomSheetDragHandleProps,
+) {
+  return (
+    <SheetLayout
+      dragHandleProps={dragHandleProps}
+      isEditMode={Boolean(props.transaction)}
+      onClose={props.onClose}
+      onDelete={sheet.deleteTransaction}
+      onHideSnackbar={() => sheet.setters.setErrorMessage('')}
+      onReturnToForm={() => sheet.setters.setStep('form')}
+      onSubmit={sheet.submit}
+      snackbarMessage={sheet.snackbarMessage}
+      state={sheet.state}
+      setters={sheet.setters}
+    />
   );
 }
 
@@ -517,6 +534,7 @@ function SheetLayout(props: {
   dragHandleProps: BottomSheetDragHandleProps;
   isEditMode: boolean;
   onClose: () => void;
+  onDelete: () => void;
   onHideSnackbar: () => void;
   onReturnToForm: () => void;
   onSubmit: () => void;
@@ -538,6 +556,8 @@ function SheetLayout(props: {
 
 function SheetContentSection(props: {
   isConfirmStep: boolean;
+  isEditMode: boolean;
+  onDelete: () => void;
   onHideSnackbar: () => void;
   onReturnToForm: () => void;
   onSubmit: () => void;
@@ -547,18 +567,27 @@ function SheetContentSection(props: {
 }) {
   return (
     <>
-      <Snackbar
-        message={props.snackbarMessage}
-        onHide={props.onHideSnackbar}
-      />
+      <Snackbar message={props.snackbarMessage} onHide={props.onHideSnackbar} />
       <SheetBody setters={props.setters} state={props.state} />
-      <SheetFooterSection
-        isConfirmStep={props.isConfirmStep}
-        onReturnToForm={props.onReturnToForm}
-        onSubmit={props.onSubmit}
-      />
+      <SheetFooterSection {...getSheetFooterSectionProps(props)} />
     </>
   );
+}
+
+function getSheetFooterSectionProps(props: {
+  isConfirmStep: boolean;
+  isEditMode: boolean;
+  onDelete: () => void;
+  onReturnToForm: () => void;
+  onSubmit: () => void;
+}) {
+  return {
+    isConfirmStep: props.isConfirmStep,
+    isEditMode: props.isEditMode,
+    onDelete: props.onDelete,
+    onReturnToForm: props.onReturnToForm,
+    onSubmit: props.onSubmit,
+  };
 }
 
 function getSheetHeaderSectionProps(
@@ -581,6 +610,8 @@ function getSheetHeaderSectionProps(
 
 function getSheetContentSectionProps(
   props: {
+    isEditMode: boolean;
+    onDelete: () => void;
     onHideSnackbar: () => void;
     onReturnToForm: () => void;
     onSubmit: () => void;
@@ -593,6 +624,8 @@ function getSheetContentSectionProps(
   return {
     isConfirmStep,
     onHideSnackbar: props.onHideSnackbar,
+    isEditMode: props.isEditMode,
+    onDelete: props.onDelete,
     onReturnToForm: props.onReturnToForm,
     onSubmit: props.onSubmit,
     setters: props.setters,
@@ -627,18 +660,28 @@ function getSheetTitle(isConfirmStep: boolean, isEditMode: boolean) {
 }
 
 function SheetFooterSection(props: {
+  isEditMode: boolean;
   isConfirmStep: boolean;
+  onDelete: () => void;
   onReturnToForm: () => void;
   onSubmit: () => void;
 }) {
   return (
     <SheetFooter
       buttonLabel={props.isConfirmStep ? 'Simpan  ✓' : 'Next'}
+      destructiveLabel={getDeleteButtonLabel(props.isEditMode, props.isConfirmStep)}
+      onDestructiveAction={
+        props.isEditMode && !props.isConfirmStep ? props.onDelete : undefined
+      }
       onSecondaryAction={props.isConfirmStep ? props.onReturnToForm : undefined}
       onSubmit={props.onSubmit}
       secondaryLabel={props.isConfirmStep ? 'Kembali' : undefined}
     />
   );
+}
+
+function getDeleteButtonLabel(isEditMode: boolean, isConfirmStep: boolean) {
+  return isEditMode && !isConfirmStep ? 'Hapus Transaksi' : undefined;
 }
 
 function useAddTransactionSheet(props: AddTransactionSheetProps) {
@@ -651,11 +694,43 @@ function useAddTransactionSheet(props: AddTransactionSheetProps) {
   useResetSheetStateOnClose(props.visible, props.transaction, setState);
 
   return {
+    deleteTransaction: () => deleteCurrentTransaction(props, setState),
     setters,
     snackbarMessage: state.errorMessage,
     state: hydratedState,
     submit: () => handlePrimaryAction(hydratedState, props, setState),
   };
+}
+
+async function deleteCurrentTransaction(
+  props: AddTransactionSheetProps,
+  setState: Dispatch<SetStateAction<SheetState>>,
+) {
+  if (!props.transaction) {
+    return;
+  }
+
+  try {
+    await deleteTransactionRequest(props.transaction.id);
+    setState(getInitialState(null));
+    props.onChanged?.();
+    props.onClose();
+  } catch (error) {
+    showSheetError(
+      setState,
+      error instanceof Error ? error.message : 'Transaksi belum bisa dihapus.',
+    );
+  }
+}
+
+async function deleteTransactionRequest(transactionId: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    throw new Error('Sesi login kamu belum tersedia.');
+  }
+
+  await deleteTransaction(token, transactionId);
 }
 
 function useInitializeSheetOnOpen(

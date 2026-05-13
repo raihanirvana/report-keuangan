@@ -21,6 +21,10 @@ import type {
 } from '../../../../Services';
 
 import styles from './DashboardUsageChart.styles';
+import type {
+  ChartArcSlice,
+  DashboardUsageChartProps,
+} from './DashboardUsageChart.types';
 
 const chartGeometry = {
   center: 86,
@@ -29,18 +33,6 @@ const chartGeometry = {
   size: 172,
   strokeWidth: 28,
 } as const;
-
-type DashboardUsageChartProps = {
-  chartAnimationKey: number;
-  dashboardSummary: DashboardSummary | null;
-  filterLabel: string;
-  onOpenUsagePeriod: () => void;
-};
-
-type ChartArcSlice = DashboardChartCategory & {
-  sliceFraction: number;
-  startFraction: number;
-};
 
 function DashboardUsageChart(props: DashboardUsageChartProps) {
   const chart = props.dashboardSummary?.chart;

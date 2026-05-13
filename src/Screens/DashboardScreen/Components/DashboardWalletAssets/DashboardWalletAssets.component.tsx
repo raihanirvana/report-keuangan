@@ -37,13 +37,10 @@ import type {
 } from '../../DashboardScreen.types';
 
 import styles from './DashboardWalletAssets.styles';
-
-type DashboardWalletAssetsProps = {
-  dashboardSummary: DashboardSummary | null;
-  onChanged: () => void;
-};
-
-type WalletSheetState = ReturnType<typeof useWalletSheetState>;
+import type {
+  DashboardWalletAssetsProps,
+  WalletSheetState,
+} from './DashboardWalletAssets.types';
 
 function DashboardWalletAssets(props: DashboardWalletAssetsProps) {
   const [isWalletSheetVisible, setWalletSheetVisible] = useState(false);

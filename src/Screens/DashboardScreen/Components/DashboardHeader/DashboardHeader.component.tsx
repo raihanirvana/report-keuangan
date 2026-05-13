@@ -13,19 +13,10 @@ import {
 import type { AuthUser } from '../../../../Services';
 
 import styles from './DashboardHeader.styles';
-
-type DashboardHeaderProps = {
-  onLogout?: () => void;
-  onUpdateUser?: (user: AuthUser) => void;
-  user?: AuthUser | null;
-};
-
-type EditNameSheetProps = {
-  currentName: string;
-  onClose: () => void;
-  onSave: (name: string) => void;
-  visible: boolean;
-};
+import type {
+  DashboardHeaderProps,
+  EditNameSheetProps,
+} from './DashboardHeader.types';
 
 function getDisplayName(user?: AuthUser | null) {
   return user?.name?.trim() || 'Sahabat Cuan';

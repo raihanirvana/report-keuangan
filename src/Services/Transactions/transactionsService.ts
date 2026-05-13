@@ -48,8 +48,16 @@ function updateTransaction(
   });
 }
 
+function deleteTransaction(token: string, transactionId: string) {
+  return apiRequest<void>(`/transactions/${transactionId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export {
   createTransaction,
+  deleteTransaction,
   getTransactions,
   updateTransaction,
 };

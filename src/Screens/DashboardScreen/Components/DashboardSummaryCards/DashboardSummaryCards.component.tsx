@@ -6,26 +6,15 @@ import {
 
 import { colors } from '../../../../Theme';
 import type {
-  HistoryFilter,
   SummaryCardsProps,
 } from '../../DashboardScreen.types';
 
 import styles from './DashboardSummaryCards.styles';
-
-type SummaryCardVariant = 'expense' | 'income';
-
-type SummaryCardData = {
-  filter: HistoryFilter;
-  icon: string;
-  label: string;
-  value: string;
-  variant: SummaryCardVariant;
-};
-
-type SummaryCardProps = SummaryCardData & {
-  onOpenHistory: (filter: HistoryFilter) => void;
-  periodLabel: string;
-};
+import type {
+  SummaryCardData,
+  SummaryCardProps,
+  SummaryCardVariant,
+} from './DashboardSummaryCards.types';
 
 function DashboardSummaryCards(props: SummaryCardsProps) {
   return (
