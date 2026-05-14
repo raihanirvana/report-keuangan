@@ -54,8 +54,9 @@ const styles = StyleSheet.create({
   centerValue: {
     color: colors.primary,
     fontFamily: typography.fontFamily,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
+    lineHeight: 20,
     textAlign: 'center',
   },
   emptyText: {

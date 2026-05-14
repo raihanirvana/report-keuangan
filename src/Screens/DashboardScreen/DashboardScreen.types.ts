@@ -153,11 +153,12 @@ type DashboardSheetState = {
   onCloseLimitDetail: () => void;
   onCloseUsagePeriod: () => void;
   onOpenAddSheet: () => void;
-  onOpenFullHistory: (filter?: HistoryFilter) => void;
+  onOpenFullHistory: (filter?: HistoryFilter, walletId?: string) => void;
   onOpenLimitDetail: () => void;
   onOpenUsagePeriod: () => void;
   onSelectHistoryFilter: (filter: HistoryFilter) => void;
   selectedHistoryFilter: HistoryFilter;
+  selectedHistoryWalletId: string;
   setAddSheetVisible: Dispatch<SetStateAction<boolean>>;
   setFullHistoryVisible: Dispatch<SetStateAction<boolean>>;
   setLimitDetailVisible: Dispatch<SetStateAction<boolean>>;
@@ -170,6 +171,7 @@ type DashboardSheetsProps = DashboardSheetState & {
 };
 
 type DashboardContentProps = {
+  apiMonth: string;
   availablePeriod?: DashboardSummary['availablePeriod'];
   chartAnimationKey: number;
   dashboardSummary: DashboardSummary | null;
@@ -182,7 +184,7 @@ type DashboardContentProps = {
   isRefreshing: boolean;
   onChanged: () => void;
   onCloseFullHistory: () => void;
-  onOpenFullHistory: (filter?: HistoryFilter) => void;
+  onOpenFullHistory: (filter?: HistoryFilter, walletId?: string) => void;
   onOpenLimitDetail: () => void;
   onOpenUsagePeriod: () => void;
   onRefresh: () => void;
@@ -190,17 +192,20 @@ type DashboardContentProps = {
   onLogout?: () => Promise<void> | void;
   onUpdateUser?: (user: AuthUser) => Promise<void> | void;
   selectedHistoryFilter: HistoryFilter;
+  selectedHistoryWalletId: string;
   user?: AuthUser | null;
 };
 
 type SummaryCardsProps = {
+  apiMonth: string;
   dashboardSummary: DashboardSummary | null;
   isLoading: boolean;
-  onOpenHistory: (filter: HistoryFilter) => void;
+  onOpenHistory: (filter: HistoryFilter, walletId?: string) => void;
   periodLabel: string;
 };
 
 type DashboardMainContentProps = {
+  apiMonth: string;
   dashboardData: DashboardDataState;
   filterLabel: string;
   historyPeriod: PeriodState;

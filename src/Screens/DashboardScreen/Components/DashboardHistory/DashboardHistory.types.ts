@@ -22,6 +22,7 @@ type DashboardHistoryProps = {
   onOpenFullHistory: () => void;
   onSelectHistoryFilter: (filter: HistoryFilter) => void;
   selectedHistoryFilter: HistoryFilter;
+  selectedHistoryWalletId: string;
 };
 
 type FullHistoryBottomSheetProps = Omit<

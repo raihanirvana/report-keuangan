@@ -14,9 +14,11 @@ import {
 } from '../../../../Components/BottomSheet';
 import {
   getTransactions,
+  getWallets,
   type DashboardSummary,
   type Transaction,
   type TransactionType,
+  type Wallet,
 } from '../../../../Services';
 import { getAuthToken } from '../../../../Utils/authStorage';
 import { monthOptions } from '../../DashboardScreen.data';
@@ -244,11 +246,18 @@ function HistoryItemAmount(props: {
 }
 
 function FullHistoryBottomSheet(props: FullHistoryBottomSheetProps) {
-  const fullHistory = useFullHistoryGroups(props);
+  const walletFilter = useHistoryWalletFilter(
+    props.isFullHistoryVisible,
+    props.selectedHistoryWalletId,
+  );
+  const fullHistory = useFullHistoryGroups({
+    ...props,
+    selectedWalletId: walletFilter.selectedWalletId,
+  });
   const {
     closeSheet,
     renderSheetView,
-  } = useFullHistorySheetRenderer(props, fullHistory);
+  } = useFullHistorySheetRenderer(props, fullHistory, walletFilter);
 
   return (
     <BottomSheet
@@ -264,6 +273,7 @@ function FullHistoryBottomSheet(props: FullHistoryBottomSheetProps) {
 function useFullHistorySheetRenderer(
   props: FullHistoryBottomSheetProps,
   fullHistory: FullHistoryState,
+  walletFilter: HistoryWalletFilterState,
 ) {
   const {
     closeSheet,
@@ -281,6 +291,7 @@ function useFullHistorySheetRenderer(
       props,
       showList,
       view,
+      walletFilter,
     }),
   };
 }
@@ -292,6 +303,7 @@ function getFullHistoryViewRenderer(params: {
   props: FullHistoryBottomSheetProps;
   showList: () => void;
   view: 'list' | 'period';
+  walletFilter: HistoryWalletFilterState;
 }) {
   return ({ dragHandleProps }: { dragHandleProps: BottomSheetDragHandleProps }) => (
     params.view === 'period'
@@ -325,6 +337,7 @@ function renderFullHistoryList(
     fullHistory: FullHistoryState;
     openPeriod: () => void;
     props: FullHistoryBottomSheetProps;
+    walletFilter: HistoryWalletFilterState;
   },
   dragHandleProps: BottomSheetDragHandleProps,
 ) {
@@ -338,6 +351,7 @@ function renderFullHistoryList(
       onPressMonth={params.openPeriod}
       onSelectFilter={params.props.onSelectHistoryFilter}
       selectedFilter={params.props.selectedHistoryFilter}
+      walletFilter={params.walletFilter}
     />
   );
 }
@@ -365,6 +379,7 @@ function FullHistorySheetContent(props: {
   onPressMonth: () => void;
   onSelectFilter: (filter: HistoryFilter) => void;
   selectedFilter: HistoryFilter;
+  walletFilter: HistoryWalletFilterState;
 }) {
   return (
     <>
@@ -380,6 +395,7 @@ function FullHistoryHeader(props: {
   onPressMonth: () => void;
   onSelectFilter: (filter: HistoryFilter) => void;
   selectedFilter: HistoryFilter;
+  walletFilter: HistoryWalletFilterState;
 }) {
   return (
     <View style={styles.fullHistoryHeader}>
@@ -393,6 +409,7 @@ function FullHistoryHeader(props: {
         onSelectFilter={props.onSelectFilter}
         selectedFilter={props.selectedFilter}
       />
+      <HistoryWalletDropdown filter={props.walletFilter} />
     </View>
   );
 }
@@ -470,6 +487,93 @@ function HistoryFilterChip(props: {
       </Text>
     </Pressable>
   );
+}
+
+function HistoryWalletDropdown(props: {
+  filter: HistoryWalletFilterState;
+}) {
+  if (!props.filter.wallets.length) {
+    return null;
+  }
+
+  return (
+    <View style={styles.fullHistoryWalletDropdownArea}>
+      <Pressable
+        onPress={props.filter.toggleDropdown}
+        style={styles.fullHistoryWalletDropdownButton}
+      >
+        <Text numberOfLines={1} style={styles.fullHistoryWalletDropdownText}>
+          {props.filter.selectedWalletName}
+        </Text>
+        <Text style={styles.fullHistoryWalletDropdownIcon}>
+          {props.filter.isDropdownOpen ? '⌃' : '⌄'}
+        </Text>
+      </Pressable>
+      <HistoryWalletDropdownOptions filter={props.filter} />
+    </View>
+  );
+}
+
+function HistoryWalletDropdownOptions(props: { filter: HistoryWalletFilterState }) {
+  if (!props.filter.isDropdownOpen) {
+    return null;
+  }
+
+  return (
+    <View style={styles.fullHistoryWalletDropdownOptions}>
+      {getHistoryWalletOptions(props.filter.wallets).map(wallet => (
+        <HistoryWalletDropdownOption
+          filter={props.filter}
+          key={wallet.id}
+          wallet={wallet}
+        />
+      ))}
+    </View>
+  );
+}
+
+function HistoryWalletDropdownOption(props: {
+  filter: HistoryWalletFilterState;
+  wallet: { id: string; name: string };
+}) {
+  const isActive = props.filter.selectedWalletId === props.wallet.id;
+
+  return (
+    <Pressable
+      onPress={() => props.filter.selectWallet(props.wallet.id)}
+      style={getHistoryWalletOptionStyle(isActive)}
+    >
+      <HistoryWalletDropdownOptionText
+        isActive={isActive}
+        name={props.wallet.name}
+      />
+    </Pressable>
+  );
+}
+
+function HistoryWalletDropdownOptionText(props: {
+  isActive: boolean;
+  name: string;
+}) {
+  return (
+    <Text numberOfLines={1} style={getHistoryWalletOptionTextStyle(props.isActive)}>
+      {props.name}
+    </Text>
+  );
+}
+
+function getHistoryWalletOptionStyle(isActive: boolean) {
+  return [
+    styles.fullHistoryWalletDropdownOption,
+    isActive && styles.fullHistoryWalletDropdownOptionActive,
+  ];
+}
+
+function getHistoryWalletOptionTextStyle(isActive: boolean) {
+  return [
+    styles.fullHistoryWalletDropdownOptionText,
+    isActive && styles.fullHistoryWalletDropdownOptionTextActive,
+  ];
 }
 
 function FullHistoryContent(props: {
@@ -776,11 +880,21 @@ type FullHistoryState = {
   isLoading: boolean;
 };
 
+type HistoryWalletFilterState = {
+  isDropdownOpen: boolean;
+  selectedWalletId: string;
+  selectedWalletName: string;
+  selectWallet: (walletId: string) => void;
+  toggleDropdown: () => void;
+  wallets: Wallet[];
+};
+
 function useFullHistoryGroups(props: {
   historyMonth: string;
   isFullHistoryVisible: boolean;
   refreshKey: number;
   selectedHistoryFilter: HistoryFilter;
+  selectedWalletId: string;
 }) {
   const [groups, setGroups] = useState<FullHistoryGroupData[]>([]);
   const [isLoading, setLoading] = useState(false);
@@ -792,6 +906,7 @@ function useFullHistoryGroups(props: {
       props.isFullHistoryVisible,
       props.refreshKey,
       props.selectedHistoryFilter,
+      props.selectedWalletId,
     ],
   );
 
@@ -803,6 +918,7 @@ function createFullHistoryLoadEffect(
     historyMonth: string;
     isFullHistoryVisible: boolean;
     selectedHistoryFilter: HistoryFilter;
+    selectedWalletId: string;
   },
   setGroups: (groups: FullHistoryGroupData[]) => void,
   setLoading: (value: boolean) => void,
@@ -810,12 +926,7 @@ function createFullHistoryLoadEffect(
   let isMounted = true;
 
   if (props.isFullHistoryVisible) {
-    loadFullHistoryGroups({
-      filter: props.selectedHistoryFilter,
-      month: props.historyMonth,
-      setGroups: items => isMounted && setGroups(items),
-      setLoading: value => isMounted && setLoading(value),
-    }).catch(() => undefined);
+    startFullHistoryGroupLoad(props, setGroups, setLoading, () => isMounted);
   }
 
   return () => {
@@ -823,16 +934,36 @@ function createFullHistoryLoadEffect(
   };
 }
 
+function startFullHistoryGroupLoad(
+  props: Parameters<typeof createFullHistoryLoadEffect>[0],
+  setGroups: (groups: FullHistoryGroupData[]) => void,
+  setLoading: (value: boolean) => void,
+  isMounted: () => boolean,
+) {
+  loadFullHistoryGroups({
+    filter: props.selectedHistoryFilter,
+    month: props.historyMonth,
+    setGroups: items => isMounted() && setGroups(items),
+    setLoading: value => isMounted() && setLoading(value),
+    walletId: props.selectedWalletId,
+  }).catch(() => undefined);
+}
+
 async function loadFullHistoryGroups(params: {
   filter: HistoryFilter;
   month: string;
   setGroups: (groups: FullHistoryGroupData[]) => void;
   setLoading: (value: boolean) => void;
+  walletId: string;
 }) {
   params.setLoading(true);
 
   try {
-    params.setGroups(await fetchFullHistoryGroups(params.month, params.filter));
+    params.setGroups(await fetchFullHistoryGroups(
+      params.month,
+      params.filter,
+      params.walletId,
+    ));
   } catch {
     params.setGroups([]);
   } finally {
@@ -840,24 +971,120 @@ async function loadFullHistoryGroups(params: {
   }
 }
 
-async function fetchFullHistoryGroups(month: string, filter: HistoryFilter) {
+function useHistoryWalletFilter(
+  isVisible: boolean,
+  initialWalletId: string,
+): HistoryWalletFilterState {
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [selectedWalletId, setSelectedWalletId] = useState(initialWalletId);
+  const [isDropdownOpen, setDropdownOpen] = useState(false);
+  useEffect(() => createHistoryWalletLoadEffect(isVisible, setWallets), [isVisible]);
+  useEffect(() => createHistoryWalletSyncEffect(
+    isVisible,
+    initialWalletId,
+    setSelectedWalletId,
+  ), [initialWalletId, isVisible]);
+
+  return getHistoryWalletFilterState({
+    isDropdownOpen,
+    selectedWalletId,
+    selectedWalletName: getSelectedHistoryWalletName(selectedWalletId, wallets),
+    selectWallet: getSelectHistoryWalletHandler(setSelectedWalletId, setDropdownOpen),
+    toggleDropdown: () => setDropdownOpen(value => !value),
+    wallets,
+  });
+}
+
+function getHistoryWalletFilterState(
+  state: HistoryWalletFilterState,
+): HistoryWalletFilterState {
+  return state;
+}
+
+function createHistoryWalletSyncEffect(
+  isVisible: boolean,
+  walletId: string,
+  setSelectedWalletId: (walletId: string) => void,
+) {
+  if (isVisible) {
+    setSelectedWalletId(walletId);
+  }
+}
+
+function createHistoryWalletLoadEffect(
+  isVisible: boolean,
+  setWallets: (wallets: Wallet[]) => void,
+) {
+  let isMounted = true;
+
+  if (isVisible) {
+    loadHistoryWallets(wallets => isMounted && setWallets(wallets))
+      .catch(() => undefined);
+  }
+
+  return () => {
+    isMounted = false;
+  };
+}
+
+async function loadHistoryWallets(setWallets: (wallets: Wallet[]) => void) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return;
+  }
+
+  setWallets((await getWallets(token)).data);
+}
+
+function getSelectHistoryWalletHandler(
+  setSelectedWalletId: (walletId: string) => void,
+  setDropdownOpen: (value: boolean) => void,
+) {
+  return (walletId: string) => {
+    setSelectedWalletId(walletId);
+    setDropdownOpen(false);
+  };
+}
+
+function getSelectedHistoryWalletName(walletId: string, wallets: Wallet[]) {
+  if (walletId === 'all') {
+    return 'Semua Dompet';
+  }
+
+  return wallets.find(wallet => wallet.id === walletId)?.name ?? 'Dompet';
+}
+
+function getHistoryWalletOptions(wallets: Array<{ id: string; name: string }>) {
+  return [{ id: 'all', name: 'Semua Dompet' }, ...wallets];
+}
+
+async function fetchFullHistoryGroups(
+  month: string,
+  filter: HistoryFilter,
+  walletId: string,
+) {
   const token = await getAuthToken();
 
   if (!token) {
     return [];
   }
 
-  const response = await getTransactions(token, getHistoryQuery(month, filter));
+  const response = await getTransactions(
+    token,
+    getHistoryQuery(month, filter, walletId),
+  );
 
   return groupHistoryItems(response.data.map(mapTransactionToHistoryItem));
 }
 
-function getHistoryQuery(month: string, filter: HistoryFilter) {
+function getHistoryQuery(month: string, filter: HistoryFilter, walletId: string) {
   return {
     limit: 50,
     month,
     page: 1,
     type: getTransactionTypeFilter(filter),
+    walletId: walletId === 'all' ? undefined : walletId,
   };
 }
 

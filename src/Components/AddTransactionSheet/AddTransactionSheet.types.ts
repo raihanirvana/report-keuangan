@@ -10,7 +10,7 @@ import type {
 } from '../../Services';
 
 type TransactionTab = 'Pengeluaran' | 'Pemasukan' | 'Pindah Dana';
-type SheetStep = 'confirm' | 'form';
+type SheetStep = 'categoryCreate' | 'confirm' | 'form';
 
 type AddTransactionSheetProps = {
   onChanged?: () => void;
@@ -22,6 +22,9 @@ type AddTransactionSheetProps = {
 type SheetState = {
   amount: string;
   categories: Category[];
+  customCategoryColor: string;
+  customCategoryIcon: string;
+  customCategoryName: string;
   errorMessage: string;
   fromWalletId: string;
   note: string;
@@ -36,6 +39,9 @@ type SheetState = {
 
 type SheetSetters = {
   setAmount: (value: string) => void;
+  setCustomCategoryColor: (value: string) => void;
+  setCustomCategoryIcon: (value: string) => void;
+  setCustomCategoryName: (value: string) => void;
   setErrorMessage: (value: string) => void;
   setFromWalletId: (value: string) => void;
   setNote: (value: string) => void;

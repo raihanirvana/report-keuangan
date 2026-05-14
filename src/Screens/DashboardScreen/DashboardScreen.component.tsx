@@ -304,6 +304,7 @@ function DashboardMiddleSections(props: DashboardContentProps) {
   return (
     <>
       <DashboardSummaryCards
+        apiMonth={props.apiMonth}
         dashboardSummary={props.dashboardSummary}
         isLoading={props.isRefreshing}
         onOpenHistory={props.onOpenFullHistory}
@@ -326,23 +327,31 @@ function DashboardFooterSections(props: DashboardContentProps) {
       <DashboardSpendingLimit
         dashboardSummary={props.dashboardSummary}
         isLoading={props.isRefreshing}
+        month={props.apiMonth}
         onOpenLimitDetail={props.onOpenLimitDetail}
       />
-      <DashboardHistory
-        availablePeriod={props.availablePeriod}
-        histories={props.historyItems}
-        historyMonth={props.historyMonth}
-        historyMonthLabel={props.historyMonthLabel}
-        historyPeriod={props.historyPeriod}
-        isFullHistoryVisible={props.isFullHistoryVisible}
-        isLoading={props.isRefreshing}
-        onChanged={props.onChanged}
-        onCloseFullHistory={props.onCloseFullHistory}
-        onOpenFullHistory={() => props.onOpenFullHistory()}
-        onSelectHistoryFilter={props.onSelectHistoryFilter}
-        selectedHistoryFilter={props.selectedHistoryFilter}
-      />
+      <DashboardHistorySection {...props} />
     </>
+  );
+}
+
+function DashboardHistorySection(props: DashboardContentProps) {
+  return (
+    <DashboardHistory
+      availablePeriod={props.availablePeriod}
+      histories={props.historyItems}
+      historyMonth={props.historyMonth}
+      historyMonthLabel={props.historyMonthLabel}
+      historyPeriod={props.historyPeriod}
+      isFullHistoryVisible={props.isFullHistoryVisible}
+      isLoading={props.isRefreshing}
+      onChanged={props.onChanged}
+      onCloseFullHistory={props.onCloseFullHistory}
+      onOpenFullHistory={() => props.onOpenFullHistory()}
+      onSelectHistoryFilter={props.onSelectHistoryFilter}
+      selectedHistoryFilter={props.selectedHistoryFilter}
+      selectedHistoryWalletId={props.selectedHistoryWalletId}
+    />
   );
 }
 
@@ -408,12 +417,19 @@ function useHistoryFilterState(setFullHistoryVisible: (value: boolean) => void) 
   const [selectedHistoryFilter, setSelectedHistoryFilter] = useState<HistoryFilter>(
     'Semua',
   );
-  const openFullHistory = (filter: HistoryFilter = 'Semua') => {
+  const [selectedHistoryWalletId, setSelectedHistoryWalletId] = useState('all');
+  const openFullHistory = (filter: HistoryFilter = 'Semua', walletId = 'all') => {
     setSelectedHistoryFilter(filter);
+    setSelectedHistoryWalletId(walletId);
     setFullHistoryVisible(true);
   };
 
-  return { openFullHistory, selectedHistoryFilter, setSelectedHistoryFilter };
+  return {
+    openFullHistory,
+    selectedHistoryFilter,
+    selectedHistoryWalletId,
+    setSelectedHistoryFilter,
+  };
 }
 
 function useDashboardSheetState() {
@@ -423,6 +439,7 @@ function useDashboardSheetState() {
   return {
     ...visibility,
     selectedHistoryFilter: history.selectedHistoryFilter,
+    selectedHistoryWalletId: history.selectedHistoryWalletId,
     ...useDashboardSheetActions({
       ...visibility,
       openFullHistory: history.openFullHistory,
@@ -758,6 +775,7 @@ function getDashboardContentProps(
 function getDashboardContentDataProps(props: DashboardMainContentProps) {
   return {
     availablePeriod: props.dashboardData.dashboardSummary?.availablePeriod,
+    apiMonth: props.apiMonth,
     chartAnimationKey: props.dashboardData.chartAnimationKey,
     dashboardSummary: props.dashboardData.dashboardSummary,
     filterLabel: props.filterLabel,
@@ -768,6 +786,7 @@ function getDashboardContentDataProps(props: DashboardMainContentProps) {
     isFullHistoryVisible: props.sheets.isFullHistoryVisible,
     isRefreshing: props.dashboardData.isRefreshing,
     selectedHistoryFilter: props.sheets.selectedHistoryFilter,
+    selectedHistoryWalletId: props.sheets.selectedHistoryWalletId,
   };
 }
 
@@ -843,6 +862,7 @@ function DashboardSuccessMainContent(
   return (
     <DashboardMainContent
       dashboardData={props.dashboardData}
+      apiMonth={props.periodFilter.apiMonth}
       filterLabel={props.periodFilter.label}
       historyPeriod={props.historyPeriod}
       historyPeriodFilter={props.historyPeriodFilter}

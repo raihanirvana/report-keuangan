@@ -20,6 +20,7 @@ import {
 } from '../../Components/BottomSheet';
 import { Snackbar } from '../../Components/Snackbar';
 import {
+  createCategory,
   createTransaction,
   deleteTransaction,
   getCategories,
@@ -43,6 +44,22 @@ import type {
 } from './AddTransactionSheet.types';
 
 const transactionTypes = ['Pengeluaran', 'Pemasukan', 'Pindah Dana'] as const;
+const categoryColorPresets = [
+  '#EE2B6C',
+  '#4EA8DE',
+  '#A29BFE',
+  '#FBCF33',
+  '#22C55E',
+  '#FB7185',
+] as const;
+const categoryIconPresets = [
+  { icon: 'lunch_dining', label: 'Makan' },
+  { icon: 'two_wheeler', label: 'Transport' },
+  { icon: 'shopping_bag', label: 'Belanja' },
+  { icon: 'wifi', label: 'Internet' },
+  { icon: 'home', label: 'Rumah' },
+  { icon: 'favorite', label: 'Hobi' },
+] as const;
 
 function SheetHeader(props: {
   dragHandleProps: BottomSheetDragHandleProps;
@@ -248,24 +265,47 @@ function WalletPicker(props: {
 
 function CategoryPicker(props: {
   categories: Category[];
+  onCreateCategory: () => void;
   selectedCategoryId: string;
   setSelectedCategoryId: (categoryId: string) => void;
 }) {
   return (
-    <PickerSection title="Category">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.categoryRow}>
-          {props.categories.map(category => (
-            <CategoryItem
-              category={category}
-              isActive={props.selectedCategoryId === category.id}
-              key={category.id}
-              onPress={() => props.setSelectedCategoryId(category.id)}
-            />
-          ))}
-        </View>
-      </ScrollView>
-    </PickerSection>
+    <View style={styles.pickerSection}>
+      <CategoryPickerHeader onCreateCategory={props.onCreateCategory} />
+      <CategoryPickerList {...props} />
+    </View>
+  );
+}
+
+function CategoryPickerHeader(props: { onCreateCategory: () => void }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>Category</Text>
+      <Pressable onPress={props.onCreateCategory}>
+        <Text style={styles.sectionLink}>Tambah</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function CategoryPickerList(props: {
+  categories: Category[];
+  selectedCategoryId: string;
+  setSelectedCategoryId: (categoryId: string) => void;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={styles.categoryRow}>
+        {props.categories.map(category => (
+          <CategoryItem
+            category={category}
+            isActive={props.selectedCategoryId === category.id}
+            key={category.id}
+            onPress={() => props.setSelectedCategoryId(category.id)}
+          />
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -291,6 +331,155 @@ function CategoryIcon(props: { isActive: boolean; value: string }) {
         {props.value}
       </Text>
     </View>
+  );
+}
+
+function CustomCategoryContent(props: {
+  setters: SheetSetters;
+  state: SheetState;
+}) {
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <CustomCategoryNameField
+        name={props.state.customCategoryName}
+        onChangeName={props.setters.setCustomCategoryName}
+      />
+      <CustomCategoryColorPicker
+        selectedColor={props.state.customCategoryColor}
+        setSelectedColor={props.setters.setCustomCategoryColor}
+      />
+      <CustomCategoryIconPicker
+        selectedIcon={props.state.customCategoryIcon}
+        setSelectedIcon={props.setters.setCustomCategoryIcon}
+      />
+    </ScrollView>
+  );
+}
+
+function CustomCategoryNameField(props: {
+  name: string;
+  onChangeName: (name: string) => void;
+}) {
+  return (
+    <View style={styles.notesSection}>
+      <Text style={styles.sectionTitle}>Nama Kategori</Text>
+      <TextInput
+        onChangeText={props.onChangeName}
+        placeholder="Contoh: Transport Malam"
+        placeholderTextColor="#94A3B8"
+        style={styles.titleInput}
+        value={props.name}
+      />
+    </View>
+  );
+}
+
+function CustomCategoryColorPicker(props: {
+  selectedColor: string;
+  setSelectedColor: (color: string) => void;
+}) {
+  return (
+    <View style={styles.customCategorySection}>
+      <Text style={styles.sectionTitle}>Warna Kategori</Text>
+      <View style={styles.customColorRow}>
+        {categoryColorPresets.map(color => (
+          <CustomCategoryColorSwatch
+            color={color}
+            isActive={props.selectedColor === color}
+            key={color}
+            onPress={props.setSelectedColor}
+          />
+        ))}
+      </View>
+      <CustomCategoryColorPreview color={props.selectedColor} />
+    </View>
+  );
+}
+
+function CustomCategoryColorPreview(props: { color: string }) {
+  return (
+    <View style={styles.customColorPreview}>
+      <View style={[styles.customColorPreviewDot, { backgroundColor: props.color }]} />
+      <Text style={styles.customColorPreviewText}>Warna ini sedang dipilih</Text>
+    </View>
+  );
+}
+
+function CustomCategoryColorSwatch(props: {
+  color: string;
+  isActive: boolean;
+  onPress: (color: string) => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => props.onPress(props.color)}
+      style={[
+        styles.customColorSwatch,
+        { backgroundColor: props.color },
+        props.isActive && styles.customColorSwatchActive,
+      ]}
+    >
+      {props.isActive && <Text style={styles.customColorSwatchCheck}>✓</Text>}
+    </Pressable>
+  );
+}
+
+function CustomCategoryIconPicker(props: {
+  selectedIcon: string;
+  setSelectedIcon: (icon: string) => void;
+}) {
+  return (
+    <View style={styles.customCategorySection}>
+      <Text style={styles.sectionTitle}>Ikon Kategori</Text>
+      <View style={styles.customIconGrid}>
+        {categoryIconPresets.map(preset => (
+          <CustomCategoryIconOption
+            isActive={props.selectedIcon === preset.icon}
+            key={preset.icon}
+            onPress={() => props.setSelectedIcon(preset.icon)}
+            preset={preset}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function CustomCategoryIconOption(props: {
+  isActive: boolean;
+  onPress: () => void;
+  preset: (typeof categoryIconPresets)[number];
+}) {
+  return (
+    <Pressable
+      onPress={props.onPress}
+      style={[
+        styles.customIconOption,
+        props.isActive && styles.customIconOptionActive,
+      ]}
+    >
+      <CustomCategoryIconOptionContent {...props} />
+    </Pressable>
+  );
+}
+
+function CustomCategoryIconOptionContent(props: {
+  isActive: boolean;
+  preset: (typeof categoryIconPresets)[number];
+}) {
+  return (
+    <>
+      <Text style={styles.customIconSymbol}>{getCategoryIconValue(props.preset.icon)}</Text>
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.customIconLabel,
+          props.isActive && styles.customIconLabelActive,
+        ]}
+      >
+        {props.preset.label}
+      </Text>
+    </>
   );
 }
 
@@ -353,6 +542,10 @@ function SheetBody(props: {
   setters: SheetSetters;
   state: SheetState;
 }) {
+  if (props.state.step === 'categoryCreate') {
+    return <CustomCategoryContent setters={props.setters} state={props.state} />;
+  }
+
   return props.state.step === 'confirm'
     ? <ConfirmationContent state={props.state} />
     : <FormContent setters={props.setters} state={props.state} />;
@@ -435,7 +628,11 @@ function TransactionControls(props: {
   return (
     <>
       <WalletFields {...props.state} {...props.setters} />
-      <CategoryPicker {...props.state} {...props.setters} />
+      <CategoryPicker
+        {...props.state}
+        {...props.setters}
+        onCreateCategory={() => props.setters.setStep('categoryCreate')}
+      />
     </>
   );
 }
@@ -543,12 +740,13 @@ function SheetLayout(props: {
   state: SheetState;
 }) {
   const isConfirmStep = props.state.step === 'confirm';
+  const isCategoryCreateStep = props.state.step === 'categoryCreate';
   const headerProps = getSheetHeaderSectionProps(props, isConfirmStep);
   const contentProps = getSheetContentSectionProps(props, isConfirmStep);
 
   return (
     <>
-      <SheetHeaderSection {...headerProps} />
+      <SheetHeaderSection {...headerProps} isCategoryCreateStep={isCategoryCreateStep} />
       <SheetContentSection {...contentProps} />
     </>
   );
@@ -580,6 +778,7 @@ function getSheetFooterSectionProps(props: {
   onDelete: () => void;
   onReturnToForm: () => void;
   onSubmit: () => void;
+  state: SheetState;
 }) {
   return {
     isConfirmStep: props.isConfirmStep,
@@ -587,6 +786,7 @@ function getSheetFooterSectionProps(props: {
     onDelete: props.onDelete,
     onReturnToForm: props.onReturnToForm,
     onSubmit: props.onSubmit,
+    state: props.state,
   };
 }
 
@@ -636,6 +836,7 @@ function getSheetContentSectionProps(
 
 function SheetHeaderSection(props: {
   dragHandleProps: BottomSheetDragHandleProps;
+  isCategoryCreateStep: boolean;
   isConfirmStep: boolean;
   isEditMode: boolean;
   onClose: () => void;
@@ -645,43 +846,95 @@ function SheetHeaderSection(props: {
     <SheetHeader
       dragHandleProps={props.dragHandleProps}
       onClose={props.onClose}
-      onGoBack={props.isConfirmStep ? props.onReturnToForm : undefined}
-      title={getSheetTitle(props.isConfirmStep, props.isEditMode)}
+      onGoBack={
+        props.isConfirmStep || props.isCategoryCreateStep
+          ? props.onReturnToForm
+          : undefined
+      }
+      title={getSheetTitle({
+        isCategoryCreateStep: props.isCategoryCreateStep,
+        isConfirmStep: props.isConfirmStep,
+        isEditMode: props.isEditMode,
+      })}
     />
   );
 }
 
-function getSheetTitle(isConfirmStep: boolean, isEditMode: boolean) {
-  if (isConfirmStep) {
-    return isEditMode ? 'Confirm Update' : 'Confirm Transaction';
+function getSheetTitle(params: {
+  isCategoryCreateStep: boolean;
+  isConfirmStep: boolean;
+  isEditMode: boolean;
+}) {
+  if (params.isCategoryCreateStep) {
+    return 'Tambah Kategori';
   }
 
-  return isEditMode ? 'Edit Transaction' : 'Add Transaction';
+  if (params.isConfirmStep) {
+    return params.isEditMode ? 'Confirm Update' : 'Confirm Transaction';
+  }
+
+  return params.isEditMode ? 'Edit Transaction' : 'Add Transaction';
 }
 
 function SheetFooterSection(props: {
   isEditMode: boolean;
   isConfirmStep: boolean;
+  state: SheetState;
   onDelete: () => void;
   onReturnToForm: () => void;
   onSubmit: () => void;
 }) {
+  const actionProps = getFooterActionProps(props);
+
   return (
     <SheetFooter
-      buttonLabel={props.isConfirmStep ? 'Simpan  ✓' : 'Next'}
-      destructiveLabel={getDeleteButtonLabel(props.isEditMode, props.isConfirmStep)}
-      onDestructiveAction={
-        props.isEditMode && !props.isConfirmStep ? props.onDelete : undefined
-      }
-      onSecondaryAction={props.isConfirmStep ? props.onReturnToForm : undefined}
+      buttonLabel={getFooterButtonLabel(props)}
+      destructiveLabel={getDeleteButtonLabel(props)}
+      onDestructiveAction={actionProps.onDestructiveAction}
+      onSecondaryAction={actionProps.onSecondaryAction}
       onSubmit={props.onSubmit}
-      secondaryLabel={props.isConfirmStep ? 'Kembali' : undefined}
+      secondaryLabel={actionProps.secondaryLabel}
     />
   );
 }
 
-function getDeleteButtonLabel(isEditMode: boolean, isConfirmStep: boolean) {
-  return isEditMode && !isConfirmStep ? 'Hapus Transaksi' : undefined;
+function getFooterActionProps(props: {
+  isEditMode: boolean;
+  isConfirmStep: boolean;
+  state: SheetState;
+  onDelete: () => void;
+  onReturnToForm: () => void;
+}) {
+  const canGoBack = props.isConfirmStep || props.state.step === 'categoryCreate';
+  const canDelete = props.isEditMode && !props.isConfirmStep
+    && props.state.step !== 'categoryCreate';
+
+  return {
+    onDestructiveAction: canDelete ? props.onDelete : undefined,
+    onSecondaryAction: canGoBack ? props.onReturnToForm : undefined,
+    secondaryLabel: canGoBack ? 'Kembali' : undefined,
+  };
+}
+
+function getFooterButtonLabel(props: {
+  isConfirmStep: boolean;
+  state?: SheetState;
+}) {
+  if (props.state?.step === 'categoryCreate') {
+    return 'Simpan Kategori';
+  }
+
+  return props.isConfirmStep ? 'Simpan  ✓' : 'Next';
+}
+
+function getDeleteButtonLabel(props: {
+  isEditMode: boolean;
+  isConfirmStep: boolean;
+  state: SheetState;
+}) {
+  return props.isEditMode && !props.isConfirmStep && props.state.step !== 'categoryCreate'
+    ? 'Hapus Transaksi'
+    : undefined;
 }
 
 function useAddTransactionSheet(props: AddTransactionSheetProps) {
@@ -778,6 +1031,9 @@ function getInitialState(transaction?: Transaction | null): SheetState {
   return {
     amount: transaction ? formatMoneyInput(String(transaction.amount)) : '',
     categories: [],
+    customCategoryColor: categoryColorPresets[0],
+    customCategoryIcon: categoryIconPresets[0].icon,
+    customCategoryName: '',
     errorMessage: '',
     fromWalletId: '',
     note: transaction?.note ?? '',
@@ -806,6 +1062,9 @@ function getTransactionTab(transaction?: Transaction | null): TransactionTab {
 function getSheetSetters(setState: Dispatch<SetStateAction<SheetState>>) {
   return {
     setAmount: (amount: string) => setState(value => ({ ...value, amount: formatMoneyInput(amount) })),
+    setCustomCategoryColor: (customCategoryColor: string) => setState(value => ({ ...value, customCategoryColor })),
+    setCustomCategoryIcon: (customCategoryIcon: string) => setState(value => ({ ...value, customCategoryIcon })),
+    setCustomCategoryName: (customCategoryName: string) => setState(value => ({ ...value, customCategoryName })),
     setErrorMessage: (errorMessage: string) => setState(value => ({ ...value, errorMessage })),
     setFromWalletId: (fromWalletId: string) => setState(value => ({ ...value, fromWalletId })),
     setNote: (note: string) => setState(value => ({ ...value, note })),
@@ -902,6 +1161,12 @@ function handlePrimaryAction(
   props: AddTransactionSheetProps,
   setState: Dispatch<SetStateAction<SheetState>>,
 ) {
+  if (state.step === 'categoryCreate') {
+    submitCustomCategory(state, setState).catch(() => undefined);
+
+    return;
+  }
+
   if (!canSubmitTransaction(state, setState)) {
     return;
   }
@@ -935,6 +1200,65 @@ async function submitTransaction(
       error instanceof Error ? error.message : 'Transaksi gagal disimpan.',
     );
   }
+}
+
+async function submitCustomCategory(
+  state: SheetState,
+  setState: Dispatch<SetStateAction<SheetState>>,
+) {
+  const categoryName = state.customCategoryName.trim();
+
+  if (!categoryName) {
+    showSheetError(setState, 'Nama kategori wajib diisi dulu ya.');
+
+    return;
+  }
+
+  try {
+    const category = await createCustomCategory(state, categoryName);
+    applyCreatedCustomCategory(setState, category);
+  } catch (error) {
+    showCustomCategoryError(setState, error);
+  }
+}
+
+function applyCreatedCustomCategory(
+  setState: Dispatch<SetStateAction<SheetState>>,
+  category: Category,
+) {
+  setState(value => ({
+    ...value,
+    categories: [...value.categories, category],
+    customCategoryName: '',
+    errorMessage: '',
+    selectedCategoryId: category.id,
+    step: 'form',
+  }));
+}
+
+function showCustomCategoryError(
+  setState: Dispatch<SetStateAction<SheetState>>,
+  error: unknown,
+) {
+  showSheetError(
+    setState,
+    error instanceof Error ? error.message : 'Kategori belum bisa dibuat.',
+  );
+}
+
+async function createCustomCategory(state: SheetState, categoryName: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    throw new Error('Sesi login kamu belum tersedia.');
+  }
+
+  return (await createCategory(token, {
+    color: state.customCategoryColor,
+    icon: state.customCategoryIcon,
+    name: categoryName,
+    type: getCategoryType(state.type),
+  })).data;
 }
 
 function canSubmitTransaction(
@@ -1024,13 +1348,21 @@ function getSelectedCategory(state: SheetState) {
 }
 
 function getCategoryIcon(category: Category) {
+  return getCategoryIconValue(category.icon);
+}
+
+function getCategoryIconValue(icon: string) {
   const iconMap: Record<string, string> = {
+    favorite: '♥',
+    home: '⌂',
+    lunch_dining: '☰',
     restaurant: '▮▮',
     shopping_bag: '▢',
     two_wheeler: '⌘',
+    wifi: '≋',
   };
 
-  return iconMap[category.icon] ?? '☆';
+  return iconMap[icon] ?? '☆';
 }
 
 function getNotePlaceholder(isTransfer: boolean) {

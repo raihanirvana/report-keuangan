@@ -17,10 +17,71 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
   },
+  cardMain: {
+    alignItems: 'flex-start',
+    gap: 12,
+    width: '100%',
+  },
+  dropdownArea: {
+    width: '100%',
+  },
+  dropdownButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 245, 247, 0.78)',
+    borderColor: 'rgba(255, 204, 213, 0.34)',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  dropdownIcon: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  dropdownOption: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  dropdownOptionActive: {
+    backgroundColor: 'rgba(238, 43, 108, 0.1)',
+  },
+  dropdownOptions: {
+    backgroundColor: colors.white,
+    borderColor: 'rgba(255, 204, 213, 0.34)',
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 6,
+    maxHeight: 176,
+    padding: 6,
+    width: '100%',
+  },
+  dropdownOptionsContent: {
+    gap: 2,
+  },
+  dropdownOptionText: {
+    color: colors.slate600,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  dropdownOptionTextActive: {
+    color: colors.primary,
+  },
+  dropdownText: {
+    color: colors.slate600,
+    flex: 1,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '800',
+  },
   grid: {
     flexDirection: 'row',
     gap: 18,
-    marginTop: 28,
     paddingHorizontal: 24,
   },
   icon: {
@@ -64,11 +125,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: -8,
   },
+  section: {
+    gap: 14,
+    marginTop: 28,
+  },
   value: {
     color: colors.slate900,
     fontFamily: typography.fontFamily,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
+    lineHeight: 22,
   },
 });
 

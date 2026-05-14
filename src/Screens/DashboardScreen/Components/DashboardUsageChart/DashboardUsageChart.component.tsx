@@ -92,7 +92,7 @@ function DonutChart(props: {
   return (
     <View style={styles.ring}>
       <ChartSlices progress={progress} slices={categories} />
-      <ChartCenter value={formatCompactRupiah(getChartExpenseTotal(props.chart))} />
+      <ChartCenter value={formatRupiah(getChartExpenseTotal(props.chart))} />
     </View>
   );
 }
@@ -104,7 +104,7 @@ function ChartCenter({ value }: { value: string }) {
       <Text
         adjustsFontSizeToFit
         minimumFontScale={0.72}
-        numberOfLines={1}
+        numberOfLines={2}
         style={styles.centerValue}
       >
         {value}
@@ -378,11 +378,7 @@ function formatPercentage(value: number) {
   return `${Math.round(value)}%`;
 }
 
-function formatCompactRupiah(value: number) {
-  if (value >= 1000) {
-    return `Rp ${Number(value / 1000).toLocaleString('id-ID')}k`;
-  }
-
+function formatRupiah(value: number) {
   return `Rp ${value.toLocaleString('id-ID')}`;
 }
 

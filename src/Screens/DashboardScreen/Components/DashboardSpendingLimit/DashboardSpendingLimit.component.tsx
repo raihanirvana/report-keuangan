@@ -8,6 +8,7 @@ import {
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -63,22 +64,36 @@ import styles from './DashboardSpendingLimit.styles';
 function SpendingLimitSection(props: {
   dashboardSummary: DashboardSummary | null;
   isLoading: boolean;
+  month: string;
   onOpenLimitDetail: () => void;
 }) {
-  const budgetLimit = props.dashboardSummary?.budgetLimit;
+  const filter = useSpendingLimitFilter(props.month, props.dashboardSummary);
+  const budgetLimit = getSelectedBudgetLimit(props.dashboardSummary, filter);
 
-  if (props.isLoading) {
+  if (props.isLoading || filter.isLoading) {
     return <SpendingLimitLoadingState />;
   }
 
+  return <SpendingLimitCard budgetLimit={budgetLimit} filter={filter} onPress={props.onOpenLimitDetail} />;
+}
+
+function SpendingLimitCard(props: {
+  budgetLimit: ReturnType<typeof getSelectedBudgetLimit>;
+  filter: SpendingLimitFilterState;
+  onPress: () => void;
+}) {
   return (
     <View style={styles.limitSection}>
-      <Pressable onPress={props.onOpenLimitDetail} style={styles.limitCard}>
-        <SpendingLimitHeader percentage={budgetLimit?.percentage ?? 0} />
-        <SpendingLimitProgress percentage={budgetLimit?.percentage ?? 0} />
+      <Pressable onPress={props.onPress} style={styles.limitCard}>
+        <SpendingLimitHeader
+          filterLabel={props.filter.selectedLabel}
+          percentage={props.budgetLimit.percentage}
+        />
+        <SpendingLimitFilterDropdown filter={props.filter} />
+        <SpendingLimitProgress percentage={props.budgetLimit.percentage} />
         <SpendingLimitAmount
-          limitAmount={budgetLimit?.limitAmount ?? 0}
-          usedAmount={budgetLimit?.usedAmount ?? 0}
+          limitAmount={props.budgetLimit.limitAmount}
+          usedAmount={props.budgetLimit.usedAmount}
         />
       </Pressable>
     </View>
@@ -98,19 +113,95 @@ function SpendingLimitLoadingState() {
   );
 }
 
-function SpendingLimitHeader(props: { percentage: number }) {
+function SpendingLimitHeader(props: {
+  filterLabel: string;
+  percentage: number;
+}) {
   return (
     <View style={styles.limitHeader}>
       <View style={styles.limitTitleRow}>
         <Text style={styles.limitIcon}>◎</Text>
         <Text numberOfLines={1} style={styles.limitTitle}>
-          Limit Pengeluaran
+          {props.filterLabel}
         </Text>
       </View>
       <Text numberOfLines={1} style={styles.limitBadge}>
         {formatLimitPercentage(props.percentage)}
       </Text>
     </View>
+  );
+}
+
+function SpendingLimitFilterDropdown(props: {
+  filter: SpendingLimitFilterState;
+}) {
+  return (
+    <View style={styles.limitFilterArea}>
+      <Pressable
+        onPress={props.filter.toggleDropdown}
+        style={styles.limitFilterButton}
+      >
+        <View style={styles.limitFilterCopy}>
+          <Text style={styles.limitFilterEyebrow}>Filter limit</Text>
+          <Text numberOfLines={1} style={styles.limitFilterSelected}>
+            {props.filter.selectedLabel}
+          </Text>
+        </View>
+        <Text style={styles.limitFilterArrow}>
+          {props.filter.isDropdownOpen ? '⌃' : '⌄'}
+        </Text>
+      </Pressable>
+      <SpendingLimitFilterOptions filter={props.filter} />
+    </View>
+  );
+}
+
+function SpendingLimitFilterOptions(props: {
+  filter: SpendingLimitFilterState;
+}) {
+  if (!props.filter.isDropdownOpen) {
+    return null;
+  }
+
+  return (
+    <ScrollView
+      nestedScrollEnabled
+      showsVerticalScrollIndicator={false}
+      style={styles.limitFilterOptions}
+      contentContainerStyle={styles.limitFilterOptionsContent}
+    >
+      {getLimitFilterOptions(props.filter.items).map(option => (
+        <LimitFilterOption
+          isActive={props.filter.selectedBudgetId === option.id}
+          key={option.id}
+          label={option.name}
+          onPress={() => props.filter.selectBudget(option.id)}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+function LimitFilterOption(props: {
+  isActive: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={props.onPress}
+      style={[styles.limitFilterOption, props.isActive && styles.limitFilterOptionActive]}
+    >
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.limitFilterOptionText,
+          props.isActive && styles.limitFilterOptionTextActive,
+        ]}
+      >
+        {props.label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -146,6 +237,126 @@ function formatLimitPercentage(value: number) {
 
 function formatRupiah(value: number) {
   return `Rp ${value.toLocaleString('id-ID')}`;
+}
+
+type SpendingLimitFilterState = {
+  isDropdownOpen: boolean;
+  isLoading: boolean;
+  items: BudgetItem[];
+  selectedBudgetId: string;
+  selectedLabel: string;
+  selectBudget: (budgetId: string) => void;
+  toggleDropdown: () => void;
+};
+
+function useSpendingLimitFilter(
+  month: string,
+  dashboardSummary: DashboardSummary | null,
+): SpendingLimitFilterState {
+  const [items, setItems] = useState<BudgetItem[]>([]);
+  const [selectedBudgetId, setSelectedBudgetId] = useState('all');
+  const [isDropdownOpen, setDropdownOpen] = useState(false);
+  const [isLoading, setLoading] = useState(false);
+
+  useEffect(
+    () => createSpendingLimitFilterLoadEffect(month, setItems, setLoading),
+    [month, dashboardSummary?.budgetLimit.usedAmount],
+  );
+
+  return {
+    isDropdownOpen,
+    isLoading,
+    items,
+    selectedBudgetId,
+    selectedLabel: getSelectedLimitLabel(selectedBudgetId, items),
+    selectBudget: getSelectBudgetHandler(setSelectedBudgetId, setDropdownOpen),
+    toggleDropdown: () => setDropdownOpen(value => !value),
+  };
+}
+
+function getSelectBudgetHandler(
+  setSelectedBudgetId: (budgetId: string) => void,
+  setDropdownOpen: (value: boolean) => void,
+) {
+  return (budgetId: string) => {
+    setSelectedBudgetId(budgetId);
+    setDropdownOpen(false);
+  };
+}
+
+function createSpendingLimitFilterLoadEffect(
+  month: string,
+  setItems: (items: BudgetItem[]) => void,
+  setLoading: (value: boolean) => void,
+) {
+  let isMounted = true;
+
+  loadSpendingLimitFilterItems({
+    month,
+    setItems: value => isMounted && setItems(value),
+    setLoading: value => isMounted && setLoading(value),
+  }).catch(() => undefined);
+
+  return () => {
+    isMounted = false;
+  };
+}
+
+async function loadSpendingLimitFilterItems(params: {
+  month: string;
+  setItems: (items: BudgetItem[]) => void;
+  setLoading: (value: boolean) => void;
+}) {
+  params.setLoading(true);
+
+  try {
+    params.setItems((await fetchBudgetItems(params.month)));
+  } finally {
+    params.setLoading(false);
+  }
+}
+
+async function fetchBudgetItems(month: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return [];
+  }
+
+  return (await getBudgets(token, month)).data.items;
+}
+
+function getSelectedLimitLabel(selectedBudgetId: string, items: BudgetItem[]) {
+  if (selectedBudgetId === 'all') {
+    return 'Semua Limit';
+  }
+
+  return items.find(item => item.id === selectedBudgetId)?.name ?? 'Semua Limit';
+}
+
+function getLimitFilterOptions(items: BudgetItem[]) {
+  return [{ id: 'all', name: 'Semua Limit' }, ...items];
+}
+
+function getSelectedBudgetLimit(
+  dashboardSummary: DashboardSummary | null,
+  filter: SpendingLimitFilterState,
+) {
+  const selectedItem = filter.items.find(item => item.id === filter.selectedBudgetId);
+
+  if (selectedItem) {
+    return {
+      limitAmount: selectedItem.limitAmount,
+      percentage: selectedItem.percentage,
+      usedAmount: selectedItem.usedAmount,
+    };
+  }
+
+  return dashboardSummary?.budgetLimit ?? {
+    limitAmount: 0,
+    percentage: 0,
+    usedAmount: 0,
+  };
 }
 
 function WalletDeleteButton(props: { isVisible: boolean; onPress: () => void }) {
