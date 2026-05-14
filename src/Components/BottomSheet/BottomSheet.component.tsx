@@ -33,6 +33,7 @@ type BottomSheetProps = {
   children: BottomSheetChildren;
   containerStyle: StyleProp<ViewStyle>;
   disableClose?: boolean;
+  dragFromHandleOnly?: boolean;
   isLoading?: boolean;
   loadingLabel?: string;
   onClose: () => void;
@@ -153,9 +154,11 @@ function getSheetHandlers(
   responders: ReturnType<typeof useSheetDrag>,
   isInteractionDisabled: boolean,
 ) {
+  const shouldDisableSurfaceDrag = isInteractionDisabled || props.dragFromHandleOnly;
+
   return {
     onClose: isInteractionDisabled ? () => undefined : props.onClose,
-    panHandlers: isInteractionDisabled ? undefined : responders.panResponder.panHandlers,
+    panHandlers: shouldDisableSurfaceDrag ? undefined : responders.panResponder.panHandlers,
     renderDragHandleProps: isInteractionDisabled
       ? {} as BottomSheetDragHandleProps
       : responders.dragHandleResponder.panHandlers,

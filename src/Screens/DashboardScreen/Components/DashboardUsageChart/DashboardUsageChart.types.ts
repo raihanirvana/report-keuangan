@@ -1,9 +1,8 @@
-import type {
-  DashboardChartCategory,
-  DashboardSummary,
-} from '../../../../Services';
+import type { CategoryDonutChartItem } from '../../../../Components/CategoryDonutChart';
+import type { DashboardSummary } from '../../../../Services';
 
 type DashboardUsageChartProps = {
+  apiMonth: string;
   chartAnimationKey: number;
   dashboardSummary: DashboardSummary | null;
   filterLabel: string;
@@ -11,12 +10,15 @@ type DashboardUsageChartProps = {
   onOpenUsagePeriod: () => void;
 };
 
-type ChartArcSlice = DashboardChartCategory & {
-  sliceFraction: number;
-  startFraction: number;
+type IncomeChartState = {
+  hide: () => void;
+  isHidden: boolean;
+  isLoading: boolean;
+  items: CategoryDonutChartItem[];
+  totalAmount: number;
 };
 
 export type {
-  ChartArcSlice,
   DashboardUsageChartProps,
+  IncomeChartState,
 };

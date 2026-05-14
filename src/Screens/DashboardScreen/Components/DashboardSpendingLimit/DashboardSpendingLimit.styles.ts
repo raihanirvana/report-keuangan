@@ -29,43 +29,6 @@ const styles = StyleSheet.create({
   blueLimitText: {
     color: colors.secondary,
   },
-  categoryPresetRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  colorSwatch: {
-    borderColor: colors.white,
-    borderRadius: 16,
-    borderWidth: 3,
-    height: 32,
-    width: 32,
-  },
-  colorSwatchActive: {
-    shadowColor: colors.slate900,
-    shadowOffset: { height: 4, width: 0 },
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-  },
-  iconPresetChip: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 204, 213, 0.12)',
-    borderColor: 'rgba(255, 204, 213, 0.28)',
-    borderRadius: 18,
-    borderWidth: 1,
-    height: 76,
-    justifyContent: 'center',
-    width: 76,
-  },
-  iconPresetChipActive: {
-    backgroundColor: 'rgba(238, 43, 108, 0.12)',
-    borderColor: colors.primary,
-  },
-  iconPresetSymbol: {
-    color: colors.slate900,
-    fontSize: 28,
-    fontWeight: '800',
-  },
   limitAmount: {
     color: colors.slate600,
     fontFamily: typography.fontFamily,
@@ -106,6 +69,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: 34,
     borderTopRightRadius: 34,
+    maxHeight: '92%',
     paddingBottom: 42,
     paddingHorizontal: 24,
     paddingTop: 14,
@@ -457,6 +421,13 @@ const styles = StyleSheet.create({
   },
   sheetTitleArea: {
     flex: 1,
+  },
+  sheetScroll: {
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+  },
+  sheetScrollContent: {
+    paddingBottom: 8,
   },
   usePreviousLimitButton: {
     alignItems: 'center',

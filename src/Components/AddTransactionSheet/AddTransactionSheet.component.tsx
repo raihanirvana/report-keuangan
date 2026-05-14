@@ -18,6 +18,10 @@ import {
   BottomSheet,
   type BottomSheetDragHandleProps,
 } from '../../Components/BottomSheet';
+import CategoryCreateContent, {
+  categoryColorPresets,
+  categoryIconPresets,
+} from '../../Components/CategoryCreateContent';
 import { Snackbar } from '../../Components/Snackbar';
 import {
   createCategory,
@@ -33,6 +37,7 @@ import {
   type Wallet,
 } from '../../Services';
 import { getAuthToken } from '../../Utils/authStorage';
+import { getCategoryIconValue } from '../../Utils/categoryIcons';
 
 import styles from './AddTransactionSheet.styles';
 import type {
@@ -44,22 +49,6 @@ import type {
 } from './AddTransactionSheet.types';
 
 const transactionTypes = ['Pengeluaran', 'Pemasukan', 'Pindah Dana'] as const;
-const categoryColorPresets = [
-  '#EE2B6C',
-  '#4EA8DE',
-  '#A29BFE',
-  '#FBCF33',
-  '#22C55E',
-  '#FB7185',
-] as const;
-const categoryIconPresets = [
-  { icon: 'lunch_dining', label: 'Makan' },
-  { icon: 'two_wheeler', label: 'Transport' },
-  { icon: 'shopping_bag', label: 'Belanja' },
-  { icon: 'wifi', label: 'Internet' },
-  { icon: 'home', label: 'Rumah' },
-  { icon: 'favorite', label: 'Hobi' },
-] as const;
 
 function SheetHeader(props: {
   dragHandleProps: BottomSheetDragHandleProps;
@@ -340,146 +329,15 @@ function CustomCategoryContent(props: {
 }) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <CustomCategoryNameField
+      <CategoryCreateContent
+        color={props.state.customCategoryColor}
+        icon={props.state.customCategoryIcon}
         name={props.state.customCategoryName}
+        onChangeColor={props.setters.setCustomCategoryColor}
+        onChangeIcon={props.setters.setCustomCategoryIcon}
         onChangeName={props.setters.setCustomCategoryName}
       />
-      <CustomCategoryColorPicker
-        selectedColor={props.state.customCategoryColor}
-        setSelectedColor={props.setters.setCustomCategoryColor}
-      />
-      <CustomCategoryIconPicker
-        selectedIcon={props.state.customCategoryIcon}
-        setSelectedIcon={props.setters.setCustomCategoryIcon}
-      />
     </ScrollView>
-  );
-}
-
-function CustomCategoryNameField(props: {
-  name: string;
-  onChangeName: (name: string) => void;
-}) {
-  return (
-    <View style={styles.notesSection}>
-      <Text style={styles.sectionTitle}>Nama Kategori</Text>
-      <TextInput
-        onChangeText={props.onChangeName}
-        placeholder="Contoh: Transport Malam"
-        placeholderTextColor="#94A3B8"
-        style={styles.titleInput}
-        value={props.name}
-      />
-    </View>
-  );
-}
-
-function CustomCategoryColorPicker(props: {
-  selectedColor: string;
-  setSelectedColor: (color: string) => void;
-}) {
-  return (
-    <View style={styles.customCategorySection}>
-      <Text style={styles.sectionTitle}>Warna Kategori</Text>
-      <View style={styles.customColorRow}>
-        {categoryColorPresets.map(color => (
-          <CustomCategoryColorSwatch
-            color={color}
-            isActive={props.selectedColor === color}
-            key={color}
-            onPress={props.setSelectedColor}
-          />
-        ))}
-      </View>
-      <CustomCategoryColorPreview color={props.selectedColor} />
-    </View>
-  );
-}
-
-function CustomCategoryColorPreview(props: { color: string }) {
-  return (
-    <View style={styles.customColorPreview}>
-      <View style={[styles.customColorPreviewDot, { backgroundColor: props.color }]} />
-      <Text style={styles.customColorPreviewText}>Warna ini sedang dipilih</Text>
-    </View>
-  );
-}
-
-function CustomCategoryColorSwatch(props: {
-  color: string;
-  isActive: boolean;
-  onPress: (color: string) => void;
-}) {
-  return (
-    <Pressable
-      onPress={() => props.onPress(props.color)}
-      style={[
-        styles.customColorSwatch,
-        { backgroundColor: props.color },
-        props.isActive && styles.customColorSwatchActive,
-      ]}
-    >
-      {props.isActive && <Text style={styles.customColorSwatchCheck}>✓</Text>}
-    </Pressable>
-  );
-}
-
-function CustomCategoryIconPicker(props: {
-  selectedIcon: string;
-  setSelectedIcon: (icon: string) => void;
-}) {
-  return (
-    <View style={styles.customCategorySection}>
-      <Text style={styles.sectionTitle}>Ikon Kategori</Text>
-      <View style={styles.customIconGrid}>
-        {categoryIconPresets.map(preset => (
-          <CustomCategoryIconOption
-            isActive={props.selectedIcon === preset.icon}
-            key={preset.icon}
-            onPress={() => props.setSelectedIcon(preset.icon)}
-            preset={preset}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function CustomCategoryIconOption(props: {
-  isActive: boolean;
-  onPress: () => void;
-  preset: (typeof categoryIconPresets)[number];
-}) {
-  return (
-    <Pressable
-      onPress={props.onPress}
-      style={[
-        styles.customIconOption,
-        props.isActive && styles.customIconOptionActive,
-      ]}
-    >
-      <CustomCategoryIconOptionContent {...props} />
-    </Pressable>
-  );
-}
-
-function CustomCategoryIconOptionContent(props: {
-  isActive: boolean;
-  preset: (typeof categoryIconPresets)[number];
-}) {
-  return (
-    <>
-      <Text style={styles.customIconSymbol}>{getCategoryIconValue(props.preset.icon)}</Text>
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.customIconLabel,
-          props.isActive && styles.customIconLabelActive,
-        ]}
-      >
-        {props.preset.label}
-      </Text>
-    </>
   );
 }
 
@@ -1349,20 +1207,6 @@ function getSelectedCategory(state: SheetState) {
 
 function getCategoryIcon(category: Category) {
   return getCategoryIconValue(category.icon);
-}
-
-function getCategoryIconValue(icon: string) {
-  const iconMap: Record<string, string> = {
-    favorite: '♥',
-    home: '⌂',
-    lunch_dining: '☰',
-    restaurant: '▮▮',
-    shopping_bag: '▢',
-    two_wheeler: '⌘',
-    wifi: '≋',
-  };
-
-  return iconMap[icon] ?? '☆';
 }
 
 function getNotePlaceholder(isTransfer: boolean) {

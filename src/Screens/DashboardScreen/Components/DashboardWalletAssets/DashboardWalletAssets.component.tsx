@@ -43,6 +43,29 @@ import type {
   WalletSheetState,
 } from './DashboardWalletAssets.types';
 
+const walletToneStyleMap = {
+  blue: {
+    amount: styles.blueWalletAmount,
+    icon: styles.blueWalletIcon,
+    option: styles.blueWalletOption,
+  },
+  primary: {
+    amount: styles.primaryWalletAmount,
+    icon: styles.primaryWalletIcon,
+    option: styles.primaryWalletOption,
+  },
+  purple: {
+    amount: styles.purpleWalletAmount,
+    icon: styles.purpleWalletIcon,
+    option: styles.purpleWalletOption,
+  },
+  yellow: {
+    amount: styles.yellowWalletAmount,
+    icon: styles.yellowWalletIcon,
+    option: styles.yellowWalletOption,
+  },
+};
+
 function DashboardWalletAssets(props: DashboardWalletAssetsProps) {
   const [isWalletSheetVisible, setWalletSheetVisible] = useState(false);
 
@@ -546,7 +569,7 @@ function WalletOption(props: {
   onEdit: () => void;
   wallet: WalletItem;
 }) {
-  const optionStyle = styles[`${props.wallet.tone}WalletOption`];
+  const optionStyle = walletToneStyleMap[props.wallet.tone].option;
 
   return (
     <Pressable style={[styles.walletOption, optionStyle]}>
@@ -587,13 +610,13 @@ function WalletEditButton(props: { isVisible: boolean; onPress: () => void }) {
 }
 
 function WalletOptionIconBox(props: { wallet: WalletItem }) {
-  const iconStyle = styles[`${props.wallet.tone}WalletIcon`];
+  const iconStyle = walletToneStyleMap[props.wallet.tone].icon;
 
   return <View style={[styles.walletOptionIcon, iconStyle]}><Text style={styles.sheetIconText}>{props.wallet.icon}</Text></View>;
 }
 
 function WalletOptionCopy(props: { wallet: WalletItem }) {
-  const amountStyle = styles[`${props.wallet.tone}WalletAmount`];
+  const amountStyle = walletToneStyleMap[props.wallet.tone].amount;
 
   return (
     <>

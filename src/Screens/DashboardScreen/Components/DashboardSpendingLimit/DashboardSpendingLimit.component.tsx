@@ -18,6 +18,10 @@ import {
   BottomSheet,
   type BottomSheetDragHandleProps,
 } from '../../../../Components/BottomSheet';
+import CategoryCreateContent, {
+  categoryColorPresets,
+  categoryIconPresets,
+} from '../../../../Components/CategoryCreateContent';
 import { Snackbar } from '../../../../Components/Snackbar';
 import {
   copyPreviousBudgets,
@@ -37,10 +41,7 @@ import {
   type DashboardSummary,
 } from '../../../../Services';
 import { getAuthToken } from '../../../../Utils/authStorage';
-import {
-  categoryColorPresets,
-  categoryIconPresets,
-} from '../../DashboardScreen.data';
+import { getCategoryIconValue } from '../../../../Utils/categoryIcons';
 import type {
   CustomCategoryFormState,
   EditingLimitDraft,
@@ -60,6 +61,25 @@ import type {
 } from '../../DashboardScreen.types';
 
 import styles from './DashboardSpendingLimit.styles';
+
+const limitDetailStyleMap = {
+  blue: {
+    progress: styles.blueLimitProgress,
+    text: styles.blueLimitText,
+  },
+  primary: {
+    progress: styles.primaryLimitProgress,
+    text: styles.primaryLimitText,
+  },
+  purple: {
+    progress: styles.purpleLimitProgress,
+    text: styles.purpleLimitText,
+  },
+  yellow: {
+    progress: styles.yellowLimitProgress,
+    text: styles.yellowLimitText,
+  },
+};
 
 function SpendingLimitSection(props: {
   dashboardSummary: DashboardSummary | null;
@@ -524,10 +544,7 @@ function formatMoneyInput(value: string) {
 }
 
 function getLimitDetailStyles(tone: LimitTone) {
-  return {
-    progress: styles[`${tone}LimitProgress`],
-    text: styles[`${tone}LimitText`],
-  };
+  return limitDetailStyleMap[tone];
 }
 
 function getBudgetTone(color: string): LimitTone {
@@ -546,7 +563,7 @@ function getBudgetTone(color: string): LimitTone {
 
 function mapBudgetToLimitDetail(item: BudgetItem): LimitDetail {
   return {
-    icon: getBudgetDisplayIcon(item.icon),
+    icon: getCategoryIconValue(item.icon),
     id: item.id,
     label: item.name,
     limitAmount: item.limitAmount,
@@ -554,20 +571,6 @@ function mapBudgetToLimitDetail(item: BudgetItem): LimitDetail {
     tone: getBudgetTone(item.color),
     width: getLimitWidth(item.percentage),
   };
-}
-
-function getBudgetDisplayIcon(icon: string) {
-  const iconMap: Record<string, string> = {
-    favorite: '♥',
-    home: '⌂',
-    lunch_dining: '☰',
-    shopping_bag: '▣',
-    savings: '◎',
-    two_wheeler: '↗',
-    wifi: '≋',
-  };
-
-  return iconMap[icon] ?? '◎';
 }
 
 function mapBudgetsResponse(response: BudgetsResponse): LimitDetailState {
@@ -1151,7 +1154,25 @@ function LimitCategoryCreateBody(props: {
 }) {
   const contentProps = getLimitCategoryCreateContentProps(props);
 
-  return <LimitCategoryCreateContent {...contentProps} />;
+  return (
+    <SheetScrollableContent>
+      <LimitCategoryCreateContent {...contentProps} />
+    </SheetScrollableContent>
+  );
+}
+
+function SheetScrollableContent(props: { children: ReactNode }) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.sheetScrollContent}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+      showsVerticalScrollIndicator={false}
+      style={styles.sheetScroll}
+    >
+      {props.children}
+    </ScrollView>
+  );
 }
 
 function getLimitCategoryCreateContentProps(props: {
@@ -1343,92 +1364,18 @@ function CustomCategoryCreateContent(props: {
 
   return (
     <View style={styles.walletForm}>
-      <WalletFormField
-        label="Nama Kategori"
-        onChangeText={state.setName}
-        placeholder="Transport Malam"
-        value={state.name}
-      />
-      <CategoryColorPicker state={state} />
-      <CategoryIconPicker state={state} />
-      <CustomCategorySaveButton
+      <CategoryCreateContent
+        color={state.color}
+        icon={state.icon}
         isBusy={props.isBusy}
-        onPress={() => props.onSaveCategory(state)}
+        name={state.name}
+        onChangeColor={state.setColor}
+        onChangeIcon={state.setIcon}
+        onChangeName={state.setName}
+        onSave={() => props.onSaveCategory(state)}
+        saveLabel="Simpan Kategori"
       />
     </View>
-  );
-}
-
-function CustomCategorySaveButton(props: {
-  isBusy: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      disabled={props.isBusy}
-      onPress={props.onPress}
-      style={[styles.saveWalletButton, props.isBusy && styles.walletTrashButtonDisabled]}
-    >
-      <Text style={styles.saveWalletButtonText}>Simpan Kategori</Text>
-    </Pressable>
-  );
-}
-
-function CategoryColorPicker(props: { state: CustomCategoryFormState }) {
-  return (
-    <View style={styles.walletFormField}>
-      <Text style={styles.walletFormLabel}>Warna Kategori</Text>
-      <View style={styles.categoryPresetRow}>
-        {categoryColorPresets.map(color => (
-          <Pressable
-            key={color}
-            onPress={() => props.state.setColor(color)}
-            style={[
-              styles.colorSwatch,
-              { backgroundColor: color },
-              props.state.color === color && styles.colorSwatchActive,
-            ]}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function CategoryIconPicker(props: { state: CustomCategoryFormState }) {
-  return (
-    <View style={styles.walletFormField}>
-      <Text style={styles.walletFormLabel}>Ikon Kategori</Text>
-      <View style={styles.walletTypeRow}>
-        {categoryIconPresets.map(preset => (
-          <CategoryIconPresetButton
-            activeIcon={props.state.icon}
-            key={preset.icon}
-            onPress={() => props.state.setIcon(preset.icon)}
-            preset={preset}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function CategoryIconPresetButton(props: {
-  activeIcon: string;
-  onPress: () => void;
-  preset: (typeof categoryIconPresets)[number];
-}) {
-  const isActive = props.activeIcon === props.preset.icon;
-
-  return (
-    <Pressable
-      onPress={props.onPress}
-      style={[styles.iconPresetChip, isActive && styles.iconPresetChipActive]}
-    >
-      <Text style={styles.iconPresetSymbol}>
-        {getBudgetDisplayIcon(props.preset.icon)}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -1463,10 +1410,12 @@ function CustomCategoryCreateView(props: {
         onGoBack={props.onGoBack}
         title="Tambah Category ✨"
       />
-      <CustomCategoryCreateContent
-        isBusy={props.isBusy}
-        onSaveCategory={props.onSaveCategory}
-      />
+      <SheetScrollableContent>
+        <CustomCategoryCreateContent
+          isBusy={props.isBusy}
+          onSaveCategory={props.onSaveCategory}
+        />
+      </SheetScrollableContent>
     </>
   );
 }
@@ -2191,6 +2140,7 @@ function LimitDetailBottomSheetContent(props: {
     <BottomSheet
       containerStyle={styles.limitDetailContainer}
       disableClose={limitSheet.isBusy}
+      dragFromHandleOnly={isLimitDetailScrollView(limitSheet.view)}
       isLoading={limitSheet.isBusy}
       loadingLabel={limitSheet.loadingLabel}
       onClose={props.onClose}
@@ -2199,6 +2149,10 @@ function LimitDetailBottomSheetContent(props: {
       {({ dragHandleProps }) => renderLimitDetailSheetNode(dragHandleProps, limitSheet, props)}
     </BottomSheet>
   );
+}
+
+function isLimitDetailScrollView(view: LimitSheetView) {
+  return view === 'category' || view === 'create';
 }
 
 function renderLimitDetailSheetNode(

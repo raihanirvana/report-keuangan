@@ -5,381 +5,304 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
   Pressable,
   Text,
   View,
 } from 'react-native';
-import Svg, {
-  Circle,
-  G,
-} from 'react-native-svg';
 
-import type {
-  DashboardChartCategory,
-  DashboardSummary,
+import {
+  CategoryDonutChart,
+  type CategoryDonutChartItem,
+} from '../../../../Components/CategoryDonutChart';
+import {
+  getTransactions,
+  type Transaction,
 } from '../../../../Services';
+import { getAuthToken } from '../../../../Utils/authStorage';
 
 import styles from './DashboardUsageChart.styles';
 import type {
-  ChartArcSlice,
   DashboardUsageChartProps,
+  IncomeChartState,
 } from './DashboardUsageChart.types';
 
-const chartGeometry = {
-  center: 86,
-  circumference: 2 * Math.PI * 72,
-  radius: 72,
-  size: 172,
-  strokeWidth: 28,
-} as const;
-
 function DashboardUsageChart(props: DashboardUsageChartProps) {
-  const chart = props.dashboardSummary?.chart;
-  const categories = getChartCategories(chart);
+  const income = useIncomeChartState(props);
 
   return (
+    <>
+      <ExpenseUsageChart {...props} />
+      <IncomeUsageChart
+        animationKey={props.chartAnimationKey}
+        income={income}
+        isParentLoading={props.isLoading}
+      />
+    </>
+  );
+}
+
+function ExpenseUsageChart(props: DashboardUsageChartProps) {
+  const chart = props.dashboardSummary?.chart;
+
+  return (
+    <UsageChartSection
+      action={<UsagePeriodButton {...props} />}
+      centerLabel="KELUAR"
+      emptyText="Belum ada pengeluaran."
+      isLoading={props.isLoading}
+      items={chart?.categories ?? []}
+      loadingText="Memuat penggunaan dompet..."
+      title="Penggunaan Dompet Ini"
+      totalAmount={chart?.expenseTotal ?? 0}
+      animationKey={props.chartAnimationKey}
+    />
+  );
+}
+
+function IncomeUsageChart(props: {
+  animationKey: number;
+  income: IncomeChartState;
+  isParentLoading: boolean;
+}) {
+  if (props.income.isHidden) {
+    return null;
+  }
+
+  return (
+    <UsageChartSection
+      action={<HideIncomeChartButton onPress={props.income.hide} />}
+      centerLabel="MASUK"
+      emptyText="Belum ada pemasukan."
+      isLoading={props.isParentLoading || props.income.isLoading}
+      items={props.income.items}
+      loadingText="Memuat pemasukan..."
+      title="Pemasukan Bulan Ini"
+      totalAmount={props.income.totalAmount}
+      animationKey={props.animationKey}
+    />
+  );
+}
+
+function UsageChartSection(props: {
+  action: ReactNode;
+  animationKey: number;
+  centerLabel: string;
+  emptyText: string;
+  isLoading: boolean;
+  items: CategoryDonutChartItem[];
+  loadingText: string;
+  title: string;
+  totalAmount: number;
+}) {
+  return (
     <View style={styles.section}>
-      <UsageSectionHeader {...props} />
+      <UsageSectionHeader action={props.action} title={props.title} />
       <View style={styles.card}>
         {props.isLoading ? (
-          <UsageChartLoadingState />
+          <UsageChartLoadingState label={props.loadingText} />
         ) : (
-          <>
-            <DonutChart animationKey={props.chartAnimationKey} chart={chart} />
-            <CategoryBreakdown categories={categories} />
-          </>
+          <CategoryDonutChart {...getCategoryDonutChartProps(props)} />
         )}
       </View>
     </View>
   );
 }
 
+function getCategoryDonutChartProps(props: {
+  animationKey: number;
+  centerLabel: string;
+  emptyText: string;
+  items: CategoryDonutChartItem[];
+  totalAmount: number;
+}) {
+  return {
+    animationKey: props.animationKey,
+    centerLabel: props.centerLabel,
+    emptyText: props.emptyText,
+    items: props.items,
+    totalAmount: props.totalAmount,
+  };
+}
+
 function UsageSectionHeader(props: {
+  action: ReactNode;
+  title: string;
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{props.title}</Text>
+      {props.action}
+    </View>
+  );
+}
+
+function UsagePeriodButton(props: {
   filterLabel: string;
   isLoading: boolean;
   onOpenUsagePeriod: () => void;
 }) {
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>Penggunaan Dompet Ini</Text>
-      <Pressable disabled={props.isLoading} onPress={props.onOpenUsagePeriod}>
-        <Text style={[styles.sectionLink, props.isLoading && styles.sectionLinkDisabled]}>
-          {props.isLoading ? 'Memuat...' : `${props.filterLabel}⌄`}
-        </Text>
-      </Pressable>
-    </View>
+    <Pressable disabled={props.isLoading} onPress={props.onOpenUsagePeriod}>
+      <Text style={[styles.sectionLink, props.isLoading && styles.sectionLinkDisabled]}>
+        {props.isLoading ? 'Memuat...' : `${props.filterLabel}⌄`}
+      </Text>
+    </Pressable>
   );
 }
 
-function UsageChartLoadingState() {
+function HideIncomeChartButton(props: { onPress: () => void }) {
+  return (
+    <Pressable onPress={props.onPress} style={styles.hideButton}>
+      <Text style={styles.hideButtonText}>Sembunyikan</Text>
+    </Pressable>
+  );
+}
+
+function UsageChartLoadingState(props: { label: string }) {
   return (
     <View style={styles.loadingState}>
       <ActivityIndicator color={styles.loadingSpinner.color} size="large" />
-      <Text style={styles.loadingText}>Memuat penggunaan dompet...</Text>
+      <Text style={styles.loadingText}>{props.label}</Text>
     </View>
   );
 }
 
-function DonutChart(props: {
-  animationKey: number;
-  chart?: DashboardSummary['chart'];
-}) {
-  const progress = useChartAnimationProgress(props.chart, props.animationKey);
-  const categories = getNormalizedChartCategories(getChartCategories(props.chart));
+function useIncomeChartState(props: DashboardUsageChartProps): IncomeChartState {
+  const [items, setItems] = useState<CategoryDonutChartItem[]>([]);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [isLoading, setLoading] = useState(false);
+  const [isHidden, setHidden] = useState(false);
 
-  return (
-    <View style={styles.ring}>
-      <ChartSlices progress={progress} slices={categories} />
-      <ChartCenter value={formatRupiah(getChartExpenseTotal(props.chart))} />
-    </View>
-  );
-}
+  useIncomeChartRequest(props, setItems, setTotalAmount, setLoading);
 
-function ChartCenter({ value }: { value: string }) {
-  return (
-    <View style={styles.center}>
-      <Text style={styles.centerLabel}>KELUAR</Text>
-      <Text
-        adjustsFontSizeToFit
-        minimumFontScale={0.72}
-        numberOfLines={2}
-        style={styles.centerValue}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function ChartSlices(props: { progress: number; slices: DashboardChartCategory[] }) {
-  const arcSlices = getChartArcSlices(props.slices);
-
-  return (
-    <ChartSvg>
-      <ChartTrack />
-      {arcSlices.map(slice => (
-        <ChartSliceArc
-          color={slice.color}
-          key={slice.categoryId}
-          progress={props.progress}
-          sliceFraction={slice.sliceFraction}
-          startFraction={slice.startFraction}
-        />
-      ))}
-    </ChartSvg>
-  );
-}
-
-function ChartSvg({ children }: { children: ReactNode }) {
-  return (
-    <Svg height={chartGeometry.size} viewBox={`0 0 ${chartGeometry.size} ${chartGeometry.size}`} width={chartGeometry.size}>
-      <G originX={chartGeometry.center} originY={chartGeometry.center} rotation="-90">
-        {children}
-      </G>
-    </Svg>
-  );
-}
-
-function ChartTrack() {
-  return (
-    <Circle
-      cx={chartGeometry.center}
-      cy={chartGeometry.center}
-      fill="none"
-      r={chartGeometry.radius}
-      stroke="#E8EEF7"
-      strokeWidth={chartGeometry.strokeWidth}
-    />
-  );
-}
-
-function ChartSliceArc(props: {
-  color: string;
-  progress: number;
-  sliceFraction: number;
-  startFraction: number;
-}) {
-  const visibleFraction = getVisibleChartFraction(
-    props.progress,
-    props.startFraction,
-    props.sliceFraction,
-  );
-
-  if (visibleFraction <= 0) {
-    return null;
-  }
-
-  return <ChartSliceCircle color={props.color} startFraction={props.startFraction} visibleFraction={visibleFraction} />;
-}
-
-function ChartSliceCircle(props: {
-  color: string;
-  startFraction: number;
-  visibleFraction: number;
-}) {
-  return (
-    <Circle
-      cx={chartGeometry.center}
-      cy={chartGeometry.center}
-      fill="none"
-      r={chartGeometry.radius}
-      stroke={props.color}
-      strokeDasharray={getChartStrokeDasharray(props.visibleFraction)}
-      strokeDashoffset={getChartStrokeDashOffset(props.startFraction)}
-      strokeLinecap="butt"
-      strokeWidth={chartGeometry.strokeWidth}
-    />
-  );
-}
-
-function CategoryBreakdown(props: { categories: DashboardChartCategory[] }) {
-  if (!props.categories.length) {
-    return <Text style={styles.emptyText}>Belum ada pengeluaran.</Text>;
-  }
-
-  return (
-    <View style={styles.categoryList}>
-      {props.categories.map(category => (
-        <View key={category.categoryId} style={styles.categoryItem}>
-          <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
-          <Text style={styles.categoryLabel}>
-            {category.name} {formatPercentage(category.percentage)}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function useChartAnimationProgress(
-  chart: DashboardSummary['chart'] | undefined,
-  animationKey: number,
-) {
-  const animatedProgress = useAnimatedProgressValue();
-  const progress = useAnimatedProgressListener(animatedProgress);
-  const chartSignature = JSON.stringify(chart?.categories ?? []);
-
-  useChartAnimationRunner(
-    animatedProgress,
-    animationKey,
-    chart?.expenseTotal,
-    chartSignature,
-  );
-
-  return progress;
-}
-
-function useAnimatedProgressValue() {
-  const [animatedProgress] = useState(() => new Animated.Value(0));
-
-  return animatedProgress;
-}
-
-function useAnimatedProgressListener(animatedProgress: Animated.Value) {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const listenerId = animatedProgress.addListener(({ value }) => setProgress(value));
-
-    return () => animatedProgress.removeListener(listenerId);
-  }, [animatedProgress]);
-
-  return progress;
-}
-
-function useChartAnimationRunner(
-  animatedProgress: Animated.Value,
-  animationKey: number,
-  expenseTotal: number | undefined,
-  chartSignature: string,
-) {
-  useEffect(() => {
-    animatedProgress.stopAnimation();
-    animatedProgress.setValue(0);
-    Animated.timing(animatedProgress, getChartAnimationConfig()).start();
-  }, [animatedProgress, animationKey, chartSignature, expenseTotal]);
-}
-
-function getChartAnimationConfig() {
   return {
-    duration: 1400,
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
-    toValue: 1,
-    useNativeDriver: false,
+    hide: () => setHidden(true),
+    isHidden,
+    isLoading,
+    items,
+    totalAmount,
   };
 }
 
-function getChartArcSlices(categories: DashboardChartCategory[]) {
-  const normalizedCategories = getNormalizedChartCategories(categories);
+function useIncomeChartRequest(
+  props: DashboardUsageChartProps,
+  setItems: (items: CategoryDonutChartItem[]) => void,
+  setTotalAmount: (value: number) => void,
+  setLoading: (value: boolean) => void,
+) {
+  useEffect(() => createIncomeChartLoadEffect({
+    month: props.apiMonth,
+    setItems,
+    setLoading,
+    setTotalAmount,
+  }), [props.apiMonth, setItems, setLoading, setTotalAmount]);
+}
 
-  return normalizedCategories.reduce<ChartArcSlice[]>((accumulator, category, index) => {
-    const usedFraction = getUsedSliceFraction(accumulator);
-    const sliceFraction = getSliceFraction(category, index, normalizedCategories, usedFraction);
+function createIncomeChartLoadEffect(params: {
+  month: string;
+  setItems: (items: CategoryDonutChartItem[]) => void;
+  setLoading: (value: boolean) => void;
+  setTotalAmount: (value: number) => void;
+}) {
+  let isMounted = true;
 
-    accumulator.push({
-      ...category,
-      sliceFraction,
-      startFraction: usedFraction,
+  loadIncomeChart({
+    ...params,
+    isMounted: () => isMounted,
+  }).catch(() => undefined);
+
+  return () => {
+    isMounted = false;
+  };
+}
+
+async function loadIncomeChart(params: {
+  isMounted: () => boolean;
+  month: string;
+  setItems: (items: CategoryDonutChartItem[]) => void;
+  setLoading: (value: boolean) => void;
+  setTotalAmount: (value: number) => void;
+}) {
+  const token = await getAuthToken();
+
+  if (!token || !params.isMounted()) {
+    return;
+  }
+
+  params.setLoading(true);
+
+  try {
+    const transactions = await getIncomeTransactions(token, params.month);
+    setIncomeChartData(params, transactions);
+  } finally {
+    if (params.isMounted()) {
+      params.setLoading(false);
+    }
+  }
+}
+
+async function getIncomeTransactions(token: string, month: string) {
+  return (await getTransactions(token, {
+    limit: 1000,
+    month,
+    type: 'INCOME',
+  })).data;
+}
+
+function setIncomeChartData(
+  params: Pick<Parameters<typeof loadIncomeChart>[0], 'isMounted' | 'setItems' | 'setTotalAmount'>,
+  transactions: Transaction[],
+) {
+  if (!params.isMounted()) {
+    return;
+  }
+
+  const items = mapTransactionsToChartItems(transactions);
+
+  params.setItems(items);
+  params.setTotalAmount(getTransactionTotal(transactions));
+}
+
+function mapTransactionsToChartItems(transactions: Transaction[]) {
+  const grouped = groupIncomeTransactions(transactions);
+  const totalAmount = getGroupedTotal(grouped);
+
+  return Array.from(grouped.values()).map(item => ({
+    ...item,
+    percentage: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0,
+  }));
+}
+
+function groupIncomeTransactions(transactions: Transaction[]) {
+  return transactions.reduce<Map<string, CategoryDonutChartItem>>((grouped, transaction) => {
+    const key = transaction.category?.id ?? 'income-other';
+    const current = grouped.get(key) ?? getFallbackIncomeChartItem(transaction);
+
+    grouped.set(key, {
+      ...current,
+      amount: current.amount + transaction.amount,
     });
 
-    return accumulator;
-  }, []);
+    return grouped;
+  }, new Map());
 }
 
-function getUsedSliceFraction(slices: ChartArcSlice[]) {
-  return slices.reduce((sum, slice) => sum + slice.sliceFraction, 0);
+function getFallbackIncomeChartItem(transaction: Transaction): CategoryDonutChartItem {
+  return {
+    amount: 0,
+    categoryId: transaction.category?.id ?? 'income-other',
+    color: transaction.category?.color ?? '#4EA8DE',
+    name: transaction.category?.name ?? 'Pemasukan',
+    percentage: 0,
+  };
 }
 
-function getSliceFraction(
-  category: DashboardChartCategory,
-  index: number,
-  categories: DashboardChartCategory[],
-  usedFraction: number,
-) {
-  if (index === categories.length - 1) {
-    return Math.max(1 - usedFraction, 0);
-  }
-
-  return clampPercentage(category.percentage) / 100;
+function getGroupedTotal(grouped: Map<string, CategoryDonutChartItem>) {
+  return Array.from(grouped.values()).reduce((sum, item) => sum + item.amount, 0);
 }
 
-function getVisibleChartFraction(
-  progress: number,
-  startFraction: number,
-  sliceFraction: number,
-) {
-  return Math.max(0, Math.min(progress - startFraction, sliceFraction));
-}
-
-function getChartStrokeDasharray(visibleFraction: number) {
-  const visibleLength = chartGeometry.circumference * visibleFraction;
-
-  return `${visibleLength} ${chartGeometry.circumference}`;
-}
-
-function getChartStrokeDashOffset(startFraction: number) {
-  return -chartGeometry.circumference * startFraction;
-}
-
-function getNormalizedChartCategories(categories: DashboardChartCategory[]) {
-  const totalAmount = categories.reduce(
-    (sum, category) => sum + Math.max(category.amount, 0),
-    0,
-  );
-
-  if (totalAmount > 0) {
-    return normalizeCategoriesByAmount(categories, totalAmount);
-  }
-
-  return normalizeCategoriesByPercentage(categories);
-}
-
-function normalizeCategoriesByAmount(
-  categories: DashboardChartCategory[],
-  totalAmount: number,
-) {
-  return categories.map(category => ({
-    ...category,
-    percentage: (Math.max(category.amount, 0) / totalAmount) * 100,
-  }));
-}
-
-function normalizeCategoriesByPercentage(categories: DashboardChartCategory[]) {
-  const totalPercentage = categories.reduce(
-    (sum, category) => sum + clampPercentage(category.percentage),
-    0,
-  );
-
-  if (totalPercentage <= 0) {
-    return categories;
-  }
-
-  return categories.map(category => ({
-    ...category,
-    percentage: (clampPercentage(category.percentage) / totalPercentage) * 100,
-  }));
-}
-
-function clampPercentage(value: number) {
-  return Math.min(Math.max(value, 0), 100);
-}
-
-function getChartCategories(chart?: DashboardSummary['chart']) {
-  return chart?.categories ?? [];
-}
-
-function getChartExpenseTotal(chart?: DashboardSummary['chart']) {
-  return chart?.expenseTotal ?? 0;
-}
-
-function formatPercentage(value: number) {
-  return `${Math.round(value)}%`;
-}
-
-function formatRupiah(value: number) {
-  return `Rp ${value.toLocaleString('id-ID')}`;
+function getTransactionTotal(transactions: Transaction[]) {
+  return transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
 }
 
 export default DashboardUsageChart;

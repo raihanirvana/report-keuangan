@@ -311,6 +311,7 @@ function DashboardMiddleSections(props: DashboardContentProps) {
         periodLabel={props.filterLabel}
       />
       <DashboardUsageChart
+        apiMonth={props.apiMonth}
         chartAnimationKey={props.chartAnimationKey}
         dashboardSummary={props.dashboardSummary}
         filterLabel={props.filterLabel}

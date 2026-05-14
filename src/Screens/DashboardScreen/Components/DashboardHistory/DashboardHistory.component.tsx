@@ -21,6 +21,7 @@ import {
   type Wallet,
 } from '../../../../Services';
 import { getAuthToken } from '../../../../Utils/authStorage';
+import { getCategoryIconValue } from '../../../../Utils/categoryIcons';
 import { monthOptions } from '../../DashboardScreen.data';
 import type {
   FullHistoryGroupData,
@@ -1217,24 +1218,10 @@ function getTransactionTone(type: TransactionType): HistoryTone {
 
 function getTransactionIcon(transaction: Transaction) {
   if (transaction.type === 'TRANSFER') {
-    return '↔';
+    return '🔁';
   }
 
-  return getBudgetDisplayIcon(transaction.category?.icon ?? '');
-}
-
-function getBudgetDisplayIcon(icon: string) {
-  const iconMap: Record<string, string> = {
-    favorite: '♥',
-    home: '⌂',
-    lunch_dining: '☰',
-    shopping_bag: '▣',
-    savings: '◎',
-    two_wheeler: '↗',
-    wifi: '≋',
-  };
-
-  return iconMap[icon] ?? '◎';
+  return getCategoryIconValue(transaction.category?.icon ?? '');
 }
 
 function formatTransactionAmount(transaction: Transaction) {
