@@ -1066,12 +1066,34 @@ async function fetchFullHistoryGroups(
     return [];
   }
 
+  try {
+    return await fetchFullHistoryGroupsWithToken(token, month, periodId, filter, walletId);
+  } catch (error) {
+    if (periodId && isPeriodNotFoundError(error)) {
+      return fetchFullHistoryGroups(month, undefined, filter, walletId);
+    }
+
+    throw error;
+  }
+}
+
+async function fetchFullHistoryGroupsWithToken(
+  token: string,
+  month: string,
+  periodId: string | undefined,
+  filter: HistoryFilter,
+  walletId: string,
+) {
   const response = await getTransactions(
     token,
     getHistoryQuery(month, periodId, filter, walletId),
   );
 
   return groupHistoryItems(response.data.map(mapTransactionToHistoryItem));
+}
+
+function isPeriodNotFoundError(error: unknown) {
+  return error instanceof Error && error.message === 'Periode tidak ditemukan';
 }
 
 function getHistoryQuery(

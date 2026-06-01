@@ -1461,11 +1461,18 @@ function getDashboardContentActionProps(props: DashboardMainContentProps) {
   return {
     onChanged: props.dashboardData.refreshDashboard,
     onCloseFullHistory: props.sheets.onCloseFullHistory,
-    onOpenFullHistory: props.sheets.onOpenFullHistory,
+    onOpenFullHistory: getOpenFullHistoryHandler(props),
     onOpenLimitDetail: props.sheets.onOpenLimitDetail,
     onOpenUsagePeriod: props.sheets.onOpenUsagePeriod,
     onRefresh: props.dashboardData.refreshDashboard,
     onSelectHistoryFilter: props.sheets.onSelectHistoryFilter,
+  };
+}
+
+function getOpenFullHistoryHandler(props: DashboardMainContentProps) {
+  return (filter?: HistoryFilter, walletId?: string) => {
+    props.historyPeriod.setSelectedPeriodId(props.periodId ?? '');
+    props.sheets.onOpenFullHistory(filter, walletId);
   };
 }
 
