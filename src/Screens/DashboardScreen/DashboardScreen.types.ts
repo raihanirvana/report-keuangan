@@ -143,6 +143,35 @@ type PeriodState = {
   setSelectedYear: Dispatch<SetStateAction<string>>;
 };
 
+type PeriodDateField = 'end' | 'start';
+type PeriodFormMode = 'create' | 'edit';
+
+type PeriodFormParams = {
+  actions: UsagePeriodContentProps;
+  activeDateField: PeriodDateField | null;
+  endDate: string;
+  endTime: string;
+  editingPeriodId: string;
+  errorMessage: string;
+  isSaving: boolean;
+  mode: PeriodFormMode;
+  monthDate: Date;
+  name: string;
+  setActiveDateField: (value: PeriodDateField | null) => void;
+  setEndDate: (value: string) => void;
+  setEndTime: (value: string) => void;
+  setEditingPeriodId: (value: string) => void;
+  setErrorMessage: (value: string) => void;
+  setMode: (value: PeriodFormMode) => void;
+  setMonthDate: (value: Date) => void;
+  setName: (value: string) => void;
+  setSaving: (value: boolean) => void;
+  setStartDate: (value: string) => void;
+  setStartTime: (value: string) => void;
+  startDate: string;
+  startTime: string;
+};
+
 type DashboardPeriod = {
   apiMonth: string;
   label: string;
@@ -297,6 +326,15 @@ type UsagePeriodContentProps = {
     name?: string;
     startDate: string;
   }) => Promise<void>;
+  onDeletePeriod: (periodId: string) => Promise<void>;
+  onUpdatePeriod: (
+    periodId: string,
+    payload: {
+      endDate?: string;
+      name?: string;
+      startDate?: string;
+    },
+  ) => Promise<void>;
   period: PeriodState;
 };
 
@@ -396,6 +434,9 @@ export type {
   LimitSheetState,
   LimitTone,
   PeriodState,
+  PeriodDateField,
+  PeriodFormMode,
+  PeriodFormParams,
   SaveLimitParams,
   SetLimitState,
   SummaryCardsProps,

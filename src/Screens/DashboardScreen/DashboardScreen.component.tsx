@@ -20,9 +20,11 @@ import {
 } from '../../Components/BottomSheet';
 import {
   createPeriod,
+  deletePeriod,
   getDashboardSummary,
   getPeriods,
   getTransactions,
+  updatePeriod,
   type DashboardSummary,
   type PayrollPeriod,
 } from '../../Services';
@@ -56,10 +58,40 @@ import type {
   DashboardSuccessSheetsProps,
   HistoryFilter,
   HistoryItemData,
+  PeriodDateField,
+  PeriodFormMode,
+  PeriodFormParams,
   PeriodState,
   UsagePeriodBottomSheetProps,
   UsagePeriodContentProps,
 } from './DashboardScreen.types';
+
+const periodTimeOptions = [
+  '00:00',
+  '01:00',
+  '02:00',
+  '03:00',
+  '04:00',
+  '05:00',
+  '06:00',
+  '07:00',
+  '08:00',
+  '09:00',
+  '10:00',
+  '11:00',
+  '12:00',
+  '13:00',
+  '14:00',
+  '15:00',
+  '16:00',
+  '17:00',
+  '18:00',
+  '19:00',
+  '20:00',
+  '21:00',
+  '22:00',
+  '23:00',
+] as const;
 
 function SheetBackButton(props: { isVisible?: boolean; onPress?: () => void }) {
   if (!props.isVisible) {
@@ -114,81 +146,50 @@ function SheetHeader(props: {
     </View>
   );
 }
-function PeriodOption(props: {
-  isActive: boolean;
-  label: string;
-  meta?: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={props.onPress}
-      style={[styles.periodOption, props.isActive && styles.periodOptionActive]}
-    >
-      <PeriodOptionLabel isActive={props.isActive} label={props.label} />
-      <PeriodOptionMeta isActive={props.isActive} meta={props.meta} />
-    </Pressable>
-  );
-}
-
-function PeriodOptionLabel(props: { isActive: boolean; label: string }) {
-  return (
-    <Text
-      style={[
-        styles.periodOptionText,
-        props.isActive && styles.periodOptionTextActive,
-      ]}
-    >
-      {props.label}
-    </Text>
-  );
-}
-
-function PeriodOptionMeta(props: { isActive: boolean; meta?: string }) {
-  if (!props.meta) {
-    return null;
-  }
-
-  return (
-    <Text
-      style={[
-        styles.periodOptionMeta,
-        props.isActive && styles.periodOptionMetaActive,
-      ]}
-    >
-      {props.meta}
-    </Text>
-  );
-}
-
 function UsagePeriodContent(props: UsagePeriodContentProps) {
-  const form = usePeriodCreateForm(props.onCreatePeriod);
+  const form = usePeriodForm(props);
 
   return (
     <View style={styles.periodContent}>
       <PeriodList
         isLoading={props.period.isLoading}
+        onDelete={props.onDeletePeriod}
+        onEdit={form.editPeriod}
         onSelect={props.period.setSelectedPeriodId}
         periods={props.period.periods}
         selectedPeriodId={props.period.selectedPeriodId}
       />
-      <PeriodCreateForm form={form} />
-      <Pressable
-        disabled={props.period.isLoading}
-        onPress={props.onApply}
-        style={[
-          styles.confirmButton,
-          props.period.isLoading && styles.confirmButtonDisabled,
-        ]}
-      >
-        <Text style={styles.confirmButtonText}>Terapkan</Text>
-      </Pressable>
+      <PeriodForm form={form} />
+      <UsagePeriodApplyButton
+        isLoading={props.period.isLoading}
+        onApply={props.onApply}
+      />
     </View>
+  );
+}
+
+function UsagePeriodApplyButton(props: {
+  isLoading: boolean;
+  onApply: () => void;
+}) {
+  return (
+    <Pressable
+      disabled={props.isLoading}
+      onPress={props.onApply}
+      style={[
+        styles.confirmButton,
+        props.isLoading && styles.confirmButtonDisabled,
+      ]}
+    >
+      <Text style={styles.confirmButtonText}>Terapkan</Text>
+    </Pressable>
   );
 }
 
 function PeriodList(props: {
   isLoading: boolean;
+  onDelete: (periodId: string) => Promise<void>;
+  onEdit: (period: PayrollPeriod) => void;
   onSelect: (periodId: string) => void;
   periods: PayrollPeriod[];
   selectedPeriodId: string;
@@ -210,6 +211,8 @@ function PeriodList(props: {
 }
 
 function PeriodListItems(props: {
+  onDelete: (periodId: string) => Promise<void>;
+  onEdit: (period: PayrollPeriod) => void;
   onSelect: (periodId: string) => void;
   periods: PayrollPeriod[];
   selectedPeriodId: string;
@@ -217,22 +220,58 @@ function PeriodListItems(props: {
   return (
     <View style={styles.periodList}>
       {props.periods.map(period => (
-        <PeriodOption
+        <PeriodCard
           isActive={period.id === props.selectedPeriodId}
           key={period.id}
-          label={period.name || period.label}
-          meta={period.label}
+          onDelete={() => props.onDelete(period.id)}
+          onEdit={() => props.onEdit(period)}
           onPress={() => props.onSelect(period.id)}
+          period={period}
         />
       ))}
     </View>
   );
 }
 
-function PeriodCreateForm(props: { form: ReturnType<typeof usePeriodCreateForm> }) {
+function PeriodCard(props: {
+  isActive: boolean;
+  onDelete: () => void;
+  onEdit: () => void;
+  onPress: () => void;
+  period: PayrollPeriod;
+}) {
+  return (
+    <View style={[styles.periodCard, props.isActive && styles.periodCardActive]}>
+      <Pressable onPress={props.onPress} style={styles.periodCardMain}>
+        <Text style={[styles.periodOptionText, props.isActive && styles.periodOptionTextActive]}>
+          {props.period.name || props.period.label}
+        </Text>
+        <Text style={[styles.periodOptionMeta, props.isActive && styles.periodOptionMetaActive]}>
+          {props.period.label}
+        </Text>
+      </Pressable>
+      <PeriodCardActions onDelete={props.onDelete} onEdit={props.onEdit} />
+    </View>
+  );
+}
+
+function PeriodCardActions(props: { onDelete: () => void; onEdit: () => void }) {
+  return (
+    <View style={styles.periodActionRow}>
+      <Pressable onPress={props.onEdit} style={styles.periodActionButton}>
+        <Text style={styles.periodActionText}>Edit</Text>
+      </Pressable>
+      <Pressable onPress={props.onDelete} style={styles.periodActionButton}>
+        <Text style={styles.periodActionDangerText}>Hapus</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function PeriodForm(props: { form: ReturnType<typeof usePeriodForm> }) {
   return (
     <View style={styles.periodCreateBox}>
-      <Text style={styles.periodGroupTitle}>Buat Periode Baru</Text>
+      <PeriodFormTitle form={props.form} />
       <PeriodNameInput form={props.form} />
       <PeriodDateInputs form={props.form} />
       <PeriodFormMessage message={props.form.errorMessage} />
@@ -241,7 +280,30 @@ function PeriodCreateForm(props: { form: ReturnType<typeof usePeriodCreateForm> 
   );
 }
 
-function PeriodNameInput(props: { form: ReturnType<typeof usePeriodCreateForm> }) {
+function PeriodFormTitle(props: { form: ReturnType<typeof usePeriodForm> }) {
+  return (
+    <View style={styles.periodFormTitleRow}>
+      <Text style={styles.periodGroupTitle}>
+        {props.form.mode === 'edit' ? 'Edit Periode' : 'Buat Periode Baru'}
+      </Text>
+      <PeriodCancelEditButton form={props.form} />
+    </View>
+  );
+}
+
+function PeriodCancelEditButton(props: { form: ReturnType<typeof usePeriodForm> }) {
+  if (props.form.mode !== 'edit') {
+    return null;
+  }
+
+  return (
+    <Pressable onPress={props.form.cancelEdit}>
+      <Text style={styles.periodCancelText}>Batal</Text>
+    </Pressable>
+  );
+}
+
+function PeriodNameInput(props: { form: ReturnType<typeof usePeriodForm> }) {
   return (
     <TextInput
       onChangeText={props.form.setName}
@@ -253,24 +315,100 @@ function PeriodNameInput(props: { form: ReturnType<typeof usePeriodCreateForm> }
   );
 }
 
-function PeriodDateInputs(props: { form: ReturnType<typeof usePeriodCreateForm> }) {
+function PeriodDateInputs(props: { form: ReturnType<typeof usePeriodForm> }) {
   return (
-    <View style={styles.periodDateRow}>
-      <TextInput
-        onChangeText={props.form.setStartDate}
-        placeholder="Mulai: YYYY-MM-DD"
-        placeholderTextColor={colors.slate400}
-        style={[styles.periodInput, styles.periodDateInput]}
-        value={props.form.startDate}
+    <>
+      <View style={styles.periodDateRow}>
+        <PeriodDateButton field="start" form={props.form} label="Mulai" />
+        <PeriodDateButton field="end" form={props.form} label="Sampai" />
+      </View>
+      <PeriodDatePickerPanel form={props.form} />
+      <PeriodTimePickers form={props.form} />
+    </>
+  );
+}
+
+function PeriodDateButton(props: {
+  field: 'end' | 'start';
+  form: ReturnType<typeof usePeriodForm>;
+  label: string;
+}) {
+  const value = props.field === 'start' ? props.form.startDate : props.form.endDate;
+  const time = props.field === 'start' ? props.form.startTime : props.form.endTime;
+
+  return (
+    <Pressable
+      onPress={() => props.form.openDatePicker(props.field)}
+      style={[styles.periodDateButton, styles.periodDateInput]}
+    >
+      <Text style={styles.periodDateLabel}>{props.label}</Text>
+      <Text style={styles.periodDateValue}>{formatReadableDate(value)}</Text>
+      <Text style={styles.periodDateTimeText}>{time}</Text>
+    </Pressable>
+  );
+}
+
+function PeriodTimePickers(props: { form: ReturnType<typeof usePeriodForm> }) {
+  return (
+    <View style={styles.periodTimePickerBox}>
+      <PeriodTimePicker
+        label="Jam Mulai"
+        onSelectTime={props.form.setStartTime}
+        selectedTime={props.form.startTime}
       />
-      <TextInput
-        onChangeText={props.form.setEndDate}
-        placeholder="Sampai: YYYY-MM-DD"
-        placeholderTextColor={colors.slate400}
-        style={[styles.periodInput, styles.periodDateInput]}
-        value={props.form.endDate}
+      <PeriodTimePicker
+        label="Jam Selesai"
+        onSelectTime={props.form.setEndTime}
+        selectedTime={props.form.endTime}
       />
     </View>
+  );
+}
+
+function PeriodTimePicker(props: {
+  label: string;
+  onSelectTime: (value: string) => void;
+  selectedTime: string;
+}) {
+  return (
+    <View style={styles.periodTimeSection}>
+      <Text style={styles.periodDateLabel}>{props.label}</Text>
+      <View style={styles.periodTimeGrid}>
+        {periodTimeOptions.map(time => (
+          <PeriodTimeChip
+            isActive={time === props.selectedTime}
+            key={time}
+            onPress={() => props.onSelectTime(time)}
+            time={time}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function PeriodTimeChip(props: {
+  isActive: boolean;
+  onPress: () => void;
+  time: string;
+}) {
+  return (
+    <Pressable
+      onPress={props.onPress}
+      style={[
+        styles.periodTimeChip,
+        props.isActive && styles.periodTimeChipActive,
+      ]}
+    >
+      <Text
+        style={[
+          styles.periodTimeChipText,
+          props.isActive && styles.periodTimeChipTextActive,
+        ]}
+      >
+        {props.time}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -282,7 +420,7 @@ function PeriodFormMessage(props: { message: string }) {
   return <Text style={styles.periodErrorText}>{props.message}</Text>;
 }
 
-function PeriodCreateButton(props: { form: ReturnType<typeof usePeriodCreateForm> }) {
+function PeriodCreateButton(props: { form: ReturnType<typeof usePeriodForm> }) {
   return (
     <Pressable
       disabled={props.form.isSaving}
@@ -290,7 +428,88 @@ function PeriodCreateButton(props: { form: ReturnType<typeof usePeriodCreateForm
       style={styles.periodCreateButton}
     >
       <Text style={styles.periodCreateButtonText}>
-        {props.form.isSaving ? 'Menyimpan...' : 'Tambah Periode'}
+        {getPeriodSaveLabel(props.form)}
+      </Text>
+    </Pressable>
+  );
+}
+
+function getPeriodSaveLabel(form: ReturnType<typeof usePeriodForm>) {
+  if (form.isSaving) {
+    return 'Menyimpan...';
+  }
+
+  return form.mode === 'edit' ? 'Simpan Periode' : 'Tambah Periode';
+}
+
+function PeriodDatePickerPanel(props: { form: ReturnType<typeof usePeriodForm> }) {
+  if (!props.form.activeDateField) {
+    return null;
+  }
+
+  return (
+    <View style={styles.periodDatePickerPanel}>
+      <PeriodDatePickerHeader form={props.form} />
+      <PeriodDateWeekRow />
+      <View style={styles.periodDateGrid}>
+        {getCalendarDates(props.form.monthDate).map(date => (
+          <PeriodDateDay
+            date={date}
+            form={props.form}
+            key={date.toISOString()}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function PeriodDatePickerHeader(props: { form: ReturnType<typeof usePeriodForm> }) {
+  return (
+    <View style={styles.periodDatePickerHeader}>
+      <PeriodMonthButton label="‹" onPress={() => props.form.shiftMonth(-1)} />
+      <Text style={styles.periodDatePickerTitle}>
+        {formatMonthTitle(props.form.monthDate)}
+      </Text>
+      <PeriodMonthButton label="›" onPress={() => props.form.shiftMonth(1)} />
+    </View>
+  );
+}
+
+function PeriodMonthButton(props: { label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={props.onPress} style={styles.periodDatePickerNav}>
+      <Text style={styles.periodDatePickerNavText}>{props.label}</Text>
+    </Pressable>
+  );
+}
+
+function PeriodDateWeekRow() {
+  return (
+    <View style={styles.periodDateWeekRow}>
+      {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map(day => (
+        <Text key={day} style={styles.periodDateWeekText}>{day}</Text>
+      ))}
+    </View>
+  );
+}
+
+function PeriodDateDay(props: {
+  date: Date;
+  form: ReturnType<typeof usePeriodForm>;
+}) {
+  const dateValue = formatInputDate(props.date);
+  const isSelected = props.form.activeDateField === 'start'
+    ? dateValue === props.form.startDate
+    : dateValue === props.form.endDate;
+
+  return (
+    <Pressable
+      onPress={() => props.form.selectDate(props.date)}
+      style={[styles.periodDateDay, isSelected && styles.periodDateDayActive]}
+    >
+      <Text style={[styles.periodDateDayText, isSelected && styles.periodDateDayTextActive]}>
+        {props.date.getDate()}
       </Text>
     </Pressable>
   );
@@ -625,67 +844,91 @@ function usePeriodState(initialApiMonth = getCurrentApiMonth()) {
   };
 }
 
-function usePeriodCreateForm(
-  onCreatePeriod: UsagePeriodContentProps['onCreatePeriod'],
-) {
+function usePeriodForm(actions: UsagePeriodContentProps) {
+  const [mode, setMode] = useState<PeriodFormMode>('create');
+  const [editingPeriodId, setEditingPeriodId] = useState('');
   const [name, setName] = useState('');
-  const [startDate, setStartDate] = useState(getTodayInputDate());
-  const [endDate, setEndDate] = useState(getNextMonthInputDate());
+  const dateState = usePeriodDateState();
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaving, setSaving] = useState(false);
 
-  return getPeriodCreateFormState({
-    endDate,
+  return getPeriodFormState({
+    actions,
+    ...dateState,
+    editingPeriodId,
     errorMessage,
     isSaving,
+    mode,
     name,
-    onCreatePeriod,
-    setEndDate,
+    setEditingPeriodId,
     setErrorMessage,
+    setMode,
     setName,
     setSaving,
-    setStartDate,
-    startDate,
   });
 }
 
-function getPeriodCreateFormState(params: {
-  endDate: string;
-  errorMessage: string;
-  isSaving: boolean;
-  name: string;
-  onCreatePeriod: UsagePeriodContentProps['onCreatePeriod'];
-  setEndDate: (value: string) => void;
-  setErrorMessage: (value: string) => void;
-  setName: (value: string) => void;
-  setSaving: (value: boolean) => void;
-  setStartDate: (value: string) => void;
-  startDate: string;
-}) {
+function usePeriodDateState() {
+  const [startDate, setStartDate] = useState(getTodayInputDate());
+  const [endDate, setEndDate] = useState(getNextMonthInputDate());
+  const [startTime, setStartTime] = useState('00:00');
+  const [endTime, setEndTime] = useState('00:00');
+  const [activeDateField, setActiveDateField] = useState<PeriodDateField | null>(null);
+  const [monthDate, setMonthDate] = useState(() => new Date());
+
   return {
-    endDate: params.endDate,
-    errorMessage: params.errorMessage,
-    isSaving: params.isSaving,
-    name: params.name,
-    save: () => savePeriodForm(params),
-    setEndDate: params.setEndDate,
-    setName: params.setName,
-    setStartDate: params.setStartDate,
-    startDate: params.startDate,
+    activeDateField,
+    endDate,
+    endTime,
+    monthDate,
+    setActiveDateField,
+    setEndDate,
+    setEndTime,
+    setMonthDate,
+    setStartDate,
+    setStartTime,
+    startDate,
+    startTime,
   };
 }
 
-async function savePeriodForm(params: {
-  endDate: string;
-  name: string;
-  onCreatePeriod: UsagePeriodContentProps['onCreatePeriod'];
-  setEndDate: (value: string) => void;
-  setErrorMessage: (value: string) => void;
-  setName: (value: string) => void;
-  setSaving: (value: boolean) => void;
-  setStartDate: (value: string) => void;
-  startDate: string;
-}) {
+function getPeriodFormState(params: PeriodFormParams) {
+  return {
+    ...getPeriodFormValues(params),
+    ...getPeriodFormActions(params),
+  };
+}
+
+function getPeriodFormValues(params: PeriodFormParams) {
+  return {
+    activeDateField: params.activeDateField,
+    endDate: params.endDate,
+    endTime: params.endTime,
+    errorMessage: params.errorMessage,
+    isSaving: params.isSaving,
+    mode: params.mode,
+    monthDate: params.monthDate,
+    name: params.name,
+    startDate: params.startDate,
+    startTime: params.startTime,
+  };
+}
+
+function getPeriodFormActions(params: PeriodFormParams) {
+  return {
+    cancelEdit: () => resetPeriodForm(params),
+    editPeriod: (period: PayrollPeriod) => editPeriodForm(params, period),
+    openDatePicker: (field: PeriodDateField) => openPeriodDatePicker(params, field),
+    save: () => savePeriodForm(params),
+    selectDate: (date: Date) => selectPeriodDate(params, date),
+    setEndTime: params.setEndTime,
+    setName: params.setName,
+    setStartTime: params.setStartTime,
+    shiftMonth: (amount: number) => params.setMonthDate(shiftMonth(params.monthDate, amount)),
+  };
+}
+
+async function savePeriodForm(params: PeriodFormParams) {
   if (!validatePeriodForm(params)) {
     return;
   }
@@ -695,12 +938,12 @@ async function savePeriodForm(params: {
   await submitPeriodForm(params);
 }
 
-async function submitPeriodForm(params: Parameters<typeof savePeriodForm>[0]) {
+async function submitPeriodForm(params: PeriodFormParams) {
   try {
     await runPeriodSave(params);
     resetPeriodForm(params);
   } catch {
-    params.setErrorMessage('Periode belum bisa dibuat. Coba lagi sebentar ya.');
+    params.setErrorMessage('Periode belum bisa disimpan. Coba lagi sebentar ya.');
   } finally {
     params.setSaving(false);
   }
@@ -708,52 +951,108 @@ async function submitPeriodForm(params: Parameters<typeof savePeriodForm>[0]) {
 
 function validatePeriodForm(params: {
   endDate: string;
+  endTime: string;
   setErrorMessage: (value: string) => void;
   startDate: string;
+  startTime: string;
 }) {
-  if (isValidPeriodInput(params.startDate, params.endDate)) {
+  if (isValidPeriodInput(params)) {
     return true;
   }
 
-  params.setErrorMessage(
-    'Isi tanggal mulai dan selesai dengan format YYYY-MM-DD.',
-  );
+  params.setErrorMessage('Waktu selesai harus setelah waktu mulai.');
 
   return false;
 }
 
-async function runPeriodSave(params: {
-  endDate: string;
-  name: string;
-  onCreatePeriod: UsagePeriodContentProps['onCreatePeriod'];
-  startDate: string;
-}) {
-  await params.onCreatePeriod({
-    endDate: params.endDate,
-    name: params.name.trim() || undefined,
-    startDate: params.startDate,
-  });
+async function runPeriodSave(params: PeriodFormParams) {
+  const payload = getPeriodPayload(params);
+
+  if (params.mode === 'edit' && params.editingPeriodId) {
+    await params.actions.onUpdatePeriod(params.editingPeriodId, payload);
+
+    return;
+  }
+
+  await params.actions.onCreatePeriod(payload);
 }
 
-function resetPeriodForm(params: {
-  setEndDate: (value: string) => void;
-  setName: (value: string) => void;
-  setStartDate: (value: string) => void;
+function getPeriodPayload(params: {
+  endDate: string;
+  endTime: string;
+  name: string;
+  startDate: string;
+  startTime: string;
 }) {
+  return {
+    endDate: toPeriodBoundaryIso(params.endDate, params.endTime),
+    name: params.name.trim() || undefined,
+    startDate: toPeriodBoundaryIso(params.startDate, params.startTime),
+  };
+}
+
+function editPeriodForm(
+  params: PeriodFormParams,
+  period: PayrollPeriod,
+) {
+  params.setMode('edit');
+  params.setEditingPeriodId(period.id);
+  params.setName(period.name);
+  params.setStartDate(formatInputDate(new Date(period.startDate)));
+  params.setEndDate(formatInputDate(new Date(period.endDate)));
+  params.setStartTime(formatInputTime(new Date(period.startDate)));
+  params.setEndTime(formatInputTime(new Date(period.endDate)));
+  params.setMonthDate(new Date(period.startDate));
+}
+
+function openPeriodDatePicker(
+  params: PeriodFormParams,
+  field: PeriodDateField,
+) {
+  params.setActiveDateField(field);
+  params.setMonthDate(parseInputDate(
+    field === 'start' ? params.startDate : params.endDate,
+  ));
+}
+
+function selectPeriodDate(
+  params: PeriodFormParams,
+  date: Date,
+) {
+  const formattedDate = formatInputDate(date);
+
+  if (params.activeDateField === 'start') {
+    params.setStartDate(formattedDate);
+  } else {
+    params.setEndDate(formattedDate);
+  }
+
+  params.setActiveDateField(null);
+}
+
+function resetPeriodForm(params: PeriodFormParams) {
+  params.setMode('create');
+  params.setEditingPeriodId('');
   params.setName('');
   params.setStartDate(getTodayInputDate());
   params.setEndDate(getNextMonthInputDate());
+  params.setStartTime('00:00');
+  params.setEndTime('00:00');
+  params.setActiveDateField(null);
 }
 
-function isValidPeriodInput(startDate: string, endDate: string) {
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(startDate)
-    || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)
-  ) {
+function isValidPeriodInput(params: {
+  endDate: string;
+  endTime: string;
+  startDate: string;
+  startTime: string;
+}) {
+  if (!isValidDateTimeInput(params)) {
     return false;
   }
 
-  return new Date(startDate).getTime() <= new Date(endDate).getTime();
+  return toPeriodBoundaryDate(params.endDate, params.endTime).getTime()
+    > toPeriodBoundaryDate(params.startDate, params.startTime).getTime();
 }
 
 function getTodayInputDate() {
@@ -765,6 +1064,96 @@ function getNextMonthInputDate() {
   date.setMonth(date.getMonth() + 1);
 
   return date.toISOString().slice(0, 10);
+}
+
+function formatInputDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatInputTime(date: Date) {
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+
+  return `${hour}:${minute}`;
+}
+
+function isValidDateTimeInput(params: {
+  endDate: string;
+  endTime: string;
+  startDate: string;
+  startTime: string;
+}) {
+  return isValidDateInput(params.startDate)
+    && isValidDateInput(params.endDate)
+    && isValidTimeInput(params.startTime)
+    && isValidTimeInput(params.endTime);
+}
+
+function isValidDateInput(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isValidTimeInput(value: string) {
+  return /^\d{2}:\d{2}$/.test(value);
+}
+
+function toPeriodBoundaryIso(date: string, time: string) {
+  return toPeriodBoundaryDate(date, time).toISOString();
+}
+
+function toPeriodBoundaryDate(date: string, time: string) {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
+
+function parseInputDate(value: string) {
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function formatReadableDate(value: string) {
+  return parseInputDate(value).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function getCalendarDates(monthDate: Date) {
+  const startDate = getCalendarStartDate(monthDate);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+
+    return date;
+  });
+}
+
+function getCalendarStartDate(monthDate: Date) {
+  const firstDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const startDate = new Date(firstDate);
+  startDate.setDate(firstDate.getDate() - firstDate.getDay());
+
+  return startDate;
+}
+
+function shiftMonth(date: Date, amount: number) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function formatMonthTitle(date: Date) {
+  return date.toLocaleDateString('id-ID', {
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 function getDashboardPeriod(period: PeriodState) {
@@ -824,7 +1213,13 @@ function UsagePeriodOverlay(props: {
     <UsagePeriodBottomSheet
       onApply={props.sheets.onCloseUsagePeriod}
       onCreatePeriod={payload => createAndSelectPeriod(props.period, payload)}
+      onDeletePeriod={periodId => deleteAndReloadPeriod(props.period, periodId)}
       onClose={props.sheets.onCloseUsagePeriod}
+      onUpdatePeriod={(periodId, payload) => updateAndSelectPeriod(
+        props.period,
+        periodId,
+        payload,
+      )}
       period={props.period}
       visible={props.sheets.isUsagePeriodVisible}
     />
@@ -844,12 +1239,60 @@ async function createAndSelectPeriod(
   period.setLoading(true);
   try {
     const created = await createPeriod(token, payload);
-    const response = await getPeriods(token);
-    period.setPeriods(response.data);
-    period.setSelectedPeriodId(created.data.id);
+    await reloadPeriods(period, created.data.id);
   } finally {
     period.setLoading(false);
   }
+}
+
+async function updateAndSelectPeriod(
+  period: PeriodState,
+  periodId: string,
+  payload: Parameters<UsagePeriodContentProps['onUpdatePeriod']>[1],
+) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    throw new Error('Missing token');
+  }
+
+  period.setLoading(true);
+  try {
+    await updatePeriod(token, periodId, payload);
+    await reloadPeriods(period, periodId);
+  } finally {
+    period.setLoading(false);
+  }
+}
+
+async function deleteAndReloadPeriod(period: PeriodState, periodId: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    throw new Error('Missing token');
+  }
+
+  period.setLoading(true);
+  try {
+    await deletePeriod(token, periodId);
+    await reloadPeriods(period);
+  } finally {
+    period.setLoading(false);
+  }
+}
+
+async function reloadPeriods(period: PeriodState, selectedPeriodId?: string) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return;
+  }
+
+  const response = await getPeriods(token);
+  const fallback = response.data.find(item => item.isCurrent) ?? response.data[0];
+
+  period.setPeriods(response.data);
+  period.setSelectedPeriodId(selectedPeriodId ?? fallback?.id ?? '');
 }
 
 function getCurrentApiMonth() {
