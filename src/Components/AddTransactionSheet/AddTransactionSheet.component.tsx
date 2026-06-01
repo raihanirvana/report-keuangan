@@ -396,6 +396,178 @@ function TitleField(props: {
   );
 }
 
+function DateField(props: {
+  date: string;
+  onChangeDate: (value: string) => void;
+}) {
+  const datePicker = useDatePickerField(props);
+
+  return (
+    <View style={styles.notesSection}>
+      <Text style={styles.sectionTitle}>Tanggal</Text>
+      <DateButton
+        date={props.date}
+        isOpen={datePicker.isOpen}
+        onPress={datePicker.toggleOpen}
+      />
+      <DatePickerPanel {...datePicker.panelProps} />
+    </View>
+  );
+}
+
+function useDatePickerField(props: {
+  date: string;
+  onChangeDate: (value: string) => void;
+}) {
+  const [isOpen, setOpen] = useState(false);
+  const [monthDate, setMonthDate] = useState(() => parseDateInput(props.date));
+
+  return {
+    isOpen,
+    panelProps: {
+      isOpen,
+      monthDate,
+      onChangeMonth: setMonthDate,
+      selectedDate: props.date,
+      onSelectDate: getDateSelectHandler(props.onChangeDate, setOpen),
+    },
+    toggleOpen: () => setOpen(value => !value),
+  };
+}
+
+function getDateSelectHandler(
+  onChangeDate: (value: string) => void,
+  setOpen: (value: boolean) => void,
+) {
+  return (date: Date) => {
+    onChangeDate(formatDateParts(date));
+    setOpen(false);
+  };
+}
+
+function DateButton(props: {
+  date: string;
+  isOpen: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={props.onPress} style={styles.dateButton}>
+      <Text style={styles.dateButtonText}>{props.date}</Text>
+      <Text style={styles.dateButtonIcon}>{props.isOpen ? '⌃' : '⌄'}</Text>
+    </Pressable>
+  );
+}
+
+function DatePickerPanel(props: {
+  isOpen: boolean;
+  monthDate: Date;
+  onChangeMonth: (date: Date) => void;
+  onSelectDate: (date: Date) => void;
+  selectedDate: string;
+}) {
+  if (!props.isOpen) {
+    return null;
+  }
+
+  const dates = getCalendarDates(props.monthDate);
+
+  return (
+    <View style={styles.datePickerPanel}>
+      <DatePickerHeader monthDate={props.monthDate} onChangeMonth={props.onChangeMonth} />
+      <DatePickerWeekDays />
+      <DatePickerDays dates={dates} {...props} />
+    </View>
+  );
+}
+
+function DatePickerDays(props: {
+  dates: Date[];
+  monthDate: Date;
+  onSelectDate: (date: Date) => void;
+  selectedDate: string;
+}) {
+  return (
+    <View style={styles.dateGrid}>
+      {props.dates.map(date => (
+        <DatePickerDay
+          key={date.toISOString()}
+          {...getDatePickerDayProps(date, props)}
+          onPress={() => props.onSelectDate(date)}
+        />
+      ))}
+    </View>
+  );
+}
+
+function getDatePickerDayProps(
+  date: Date,
+  props: { monthDate: Date; selectedDate: string },
+) {
+  return {
+    date,
+    isCurrentMonth: isSameMonth(date, props.monthDate),
+    isSelected: formatDateParts(date) === props.selectedDate,
+  };
+}
+
+function DatePickerHeader(props: {
+  monthDate: Date;
+  onChangeMonth: (date: Date) => void;
+}) {
+  return (
+    <View style={styles.datePickerHeader}>
+      <DatePickerNavButton label="‹" onPress={() => props.onChangeMonth(shiftMonth(props.monthDate, -1))} />
+      <Text style={styles.datePickerTitle}>{formatMonthTitle(props.monthDate)}</Text>
+      <DatePickerNavButton label="›" onPress={() => props.onChangeMonth(shiftMonth(props.monthDate, 1))} />
+    </View>
+  );
+}
+
+function DatePickerNavButton(props: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={props.onPress} style={styles.datePickerNavButton}>
+      <Text style={styles.datePickerNavText}>{props.label}</Text>
+    </Pressable>
+  );
+}
+
+function DatePickerWeekDays() {
+  return (
+    <View style={styles.dateWeekRow}>
+      {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map(day => (
+        <Text key={day} style={styles.dateWeekText}>{day}</Text>
+      ))}
+    </View>
+  );
+}
+
+function DatePickerDay(props: {
+  date: Date;
+  isCurrentMonth: boolean;
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={props.onPress}
+      style={[styles.dateDayButton, props.isSelected && styles.dateDayButtonActive]}
+    >
+      <Text
+        style={[
+          styles.dateDayText,
+          !props.isCurrentMonth && styles.dateDayTextMuted,
+          props.isSelected && styles.dateDayTextActive,
+        ]}
+      >
+        {props.date.getDate()}
+      </Text>
+    </Pressable>
+  );
+}
+
 function SheetBody(props: {
   setters: SheetSetters;
   state: SheetState;
@@ -438,10 +610,20 @@ function TransactionFormFields(props: {
         onChangeAmount={props.setters.setAmount}
       />
       <TransactionControls {...props} />
-      <TitleField
-        onChangeTitle={props.setters.setTitle}
-        title={props.state.title}
-      />
+      <TransactionMetaFields {...props} />
+    </>
+  );
+}
+
+function TransactionMetaFields(props: {
+  isTransfer: boolean;
+  setters: SheetSetters;
+  state: SheetState;
+}) {
+  return (
+    <>
+      <DateField date={props.state.occurredDate} onChangeDate={props.setters.setOccurredDate} />
+      <TitleField onChangeTitle={props.setters.setTitle} title={props.state.title} />
       <NotesField
         note={props.state.note}
         onChangeNote={props.setters.setNote}
@@ -895,6 +1077,7 @@ function getInitialState(transaction?: Transaction | null): SheetState {
     errorMessage: '',
     fromWalletId: '',
     note: transaction?.note ?? '',
+    occurredDate: formatDateForInput(transaction?.occurredAt),
     selectedCategoryId: transaction?.category?.id ?? '',
     selectedWalletId: '',
     step: 'form',
@@ -926,6 +1109,7 @@ function getSheetSetters(setState: Dispatch<SetStateAction<SheetState>>) {
     setErrorMessage: (errorMessage: string) => setState(value => ({ ...value, errorMessage })),
     setFromWalletId: (fromWalletId: string) => setState(value => ({ ...value, fromWalletId })),
     setNote: (note: string) => setState(value => ({ ...value, note })),
+    setOccurredDate: (occurredDate: string) => setState(value => ({ ...value, occurredDate })),
     setSelectedCategoryId: (selectedCategoryId: string) => setState(value => ({ ...value, selectedCategoryId })),
     setSelectedWalletId: (selectedWalletId: string) => setState(value => ({ ...value, selectedWalletId })),
     setStep: (step: SheetStep) => setState(value => ({ ...value, step })),
@@ -1144,37 +1328,48 @@ async function submitTransactionRequest(
     throw new Error('Sesi login kamu belum tersedia.');
   }
 
-  const payload = getTransactionPayload(state);
+  const payload = getTransactionPayload(state, transaction);
 
   return transaction
     ? updateTransaction(token, transaction.id, payload)
     : createTransaction(token, payload);
 }
 
-function getTransactionPayload(state: SheetState): CreateTransactionPayload {
+function getTransactionPayload(
+  state: SheetState,
+  transaction?: Transaction | null,
+): CreateTransactionPayload {
   if (state.type === 'Pindah Dana') {
-    return getTransferPayload(state);
+    return getTransferPayload(state, transaction);
   }
 
-  return getIncomeExpensePayload(state);
+  return getIncomeExpensePayload(state, transaction);
 }
 
-function getIncomeExpensePayload(state: SheetState): CreateTransactionPayload {
+function getIncomeExpensePayload(
+  state: SheetState,
+  transaction?: Transaction | null,
+): CreateTransactionPayload {
   return {
     amount: parseMoneyInput(state.amount),
     categoryId: state.selectedCategoryId,
     note: normalizeNote(state.note),
+    occurredAt: getOccurredAtIso(state.occurredDate, transaction?.occurredAt),
     title: getTransactionTitle(state),
     type: getApiTransactionType(state.type),
     walletId: state.selectedWalletId,
   };
 }
 
-function getTransferPayload(state: SheetState): CreateTransactionPayload {
+function getTransferPayload(
+  state: SheetState,
+  transaction?: Transaction | null,
+): CreateTransactionPayload {
   return {
     amount: parseMoneyInput(state.amount),
     fromWalletId: state.fromWalletId,
     note: normalizeNote(state.note),
+    occurredAt: getOccurredAtIso(state.occurredDate, transaction?.occurredAt),
     title: getTransactionTitle(state),
     toWalletId: state.toWalletId,
     type: 'TRANSFER',
@@ -1221,6 +1416,86 @@ function formatMoneyInput(value: string) {
   return amount ? new Intl.NumberFormat('id-ID').format(amount) : '';
 }
 
+function formatDateForInput(value?: string | null) {
+  const date = value ? new Date(value) : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return formatDateParts(new Date());
+  }
+
+  return formatDateParts(date);
+}
+
+function formatDateParts(date: Date) {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+
+  return `${day}/${month}/${date.getFullYear()}`;
+}
+
+function getOccurredAtIso(value: string, existingOccurredAt?: string) {
+  const date = parseDateInput(value);
+  const timeSource = existingOccurredAt ? new Date(existingOccurredAt) : new Date();
+
+  date.setHours(
+    timeSource.getHours(),
+    timeSource.getMinutes(),
+    timeSource.getSeconds(),
+    timeSource.getMilliseconds(),
+  );
+
+  return date.toISOString();
+}
+
+function parseDateInput(value: string) {
+  const [day, month, year] = value.split('/').map(Number);
+
+  return new Date(year, month - 1, day);
+}
+
+function isValidDateInput(value: string) {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+    return false;
+  }
+
+  return isSameDateParts(parseDateInput(value), value);
+}
+
+function isSameDateParts(date: Date, value: string) {
+  return !Number.isNaN(date.getTime()) && formatDateParts(date) === value;
+}
+
+function getCalendarDates(monthDate: Date) {
+  const firstDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const startDate = new Date(firstDate);
+
+  startDate.setDate(firstDate.getDate() - firstDate.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(startDate);
+
+    date.setDate(startDate.getDate() + index);
+
+    return date;
+  });
+}
+
+function isSameMonth(date: Date, monthDate: Date) {
+  return date.getFullYear() === monthDate.getFullYear()
+    && date.getMonth() === monthDate.getMonth();
+}
+
+function shiftMonth(date: Date, amount: number) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function formatMonthTitle(date: Date) {
+  return date.toLocaleDateString('id-ID', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 function parseMoneyInput(value: string) {
   return Number(value.replace(/\D/g, ''));
 }
@@ -1250,6 +1525,10 @@ function getValidationMessage(state: SheetState) {
 function getBaseValidationMessage(state: SheetState) {
   if (!parseMoneyInput(state.amount)) {
     return 'Masukkan nominal transaksi dulu ya.';
+  }
+
+  if (!isValidDateInput(state.occurredDate)) {
+    return 'Tanggal transaksi harus valid, formatnya DD/MM/YYYY.';
   }
 
   return '';
@@ -1334,6 +1613,7 @@ function getSummaryRows(state: SheetState) {
     { label: 'Tipe', value: state.type },
     { label: 'Judul', value: getTransactionTitle(state) },
     { label: 'Nominal', value: amountValue },
+    { label: 'Tanggal', value: state.occurredDate },
   ];
 
   if (state.type === 'Pindah Dana') {

@@ -4,6 +4,12 @@ type MoneySummary = {
 };
 
 type DashboardSummary = {
+  activePeriod: {
+    endDate: string;
+    id: string | null;
+    label: string;
+    startDate: string;
+  };
   availablePeriod: {
     maxMonth: string;
     minMonth: string;

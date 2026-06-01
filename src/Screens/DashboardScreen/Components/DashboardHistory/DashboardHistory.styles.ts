@@ -445,7 +445,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 204, 213, 0.32)',
     borderRadius: 16,
     borderWidth: 1,
-    flexBasis: '22%',
+    flexGrow: 1,
+    paddingHorizontal: 12,
     paddingVertical: 12,
   },
   periodOptionActive: {
@@ -466,6 +467,23 @@ const styles = StyleSheet.create({
   },
   periodOptionTextActive: {
     color: colors.white,
+  },
+  periodOptionMeta: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  periodOptionMetaActive: {
+    color: colors.white,
+  },
+  periodEmptyText: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   section: {
     marginTop: 28,

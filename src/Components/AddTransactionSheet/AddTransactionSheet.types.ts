@@ -28,6 +28,7 @@ type SheetState = {
   errorMessage: string;
   fromWalletId: string;
   note: string;
+  occurredDate: string;
   selectedCategoryId: string;
   selectedWalletId: string;
   step: SheetStep;
@@ -45,6 +46,7 @@ type SheetSetters = {
   setErrorMessage: (value: string) => void;
   setFromWalletId: (value: string) => void;
   setNote: (value: string) => void;
+  setOccurredDate: (value: string) => void;
   setSelectedCategoryId: (value: string) => void;
   setSelectedWalletId: (value: string) => void;
   setStep: (value: SheetStep) => void;

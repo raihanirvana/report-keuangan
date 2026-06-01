@@ -208,39 +208,74 @@ function useSummaryCardSummary(
   props: SummaryCardsProps,
   wallets: Wallet[],
 ): SummaryCardSummaryState {
+  const state = useSummaryCardLocalState();
+
+  useSummaryCardSummaryRequest(
+    props.apiMonth,
+    props.periodId,
+    state.selectedWalletId,
+    state.setSummary,
+    state.setLoading,
+  );
+
+  return getSummaryCardSummaryState({
+    dashboardSummary: props.dashboardSummary,
+    state,
+    wallets,
+  });
+}
+
+function getSummaryCardSummaryState(params: {
+  dashboardSummary: DashboardSummary | null;
+  state: ReturnType<typeof useSummaryCardLocalState>;
+  wallets: Wallet[];
+}): SummaryCardSummaryState {
+  return {
+    filter: getSummaryCardFilter({
+      isDropdownOpen: params.state.isDropdownOpen,
+      selectedWalletId: params.state.selectedWalletId,
+      setDropdownOpen: params.state.setDropdownOpen,
+      setSelectedWalletId: params.state.setSelectedWalletId,
+      setSummary: params.state.setSummary,
+      wallets: params.wallets,
+    }),
+    isLoading: params.state.isLoading,
+    summary: params.state.summary ?? params.dashboardSummary,
+  };
+}
+
+function useSummaryCardLocalState() {
   const [selectedWalletId, setSelectedWalletId] = useState('all');
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isLoading, setLoading] = useState(false);
 
-  useSummaryCardSummaryRequest(props.apiMonth, selectedWalletId, setSummary, setLoading);
-
   return {
-    filter: getSummaryCardFilter({
-      isDropdownOpen,
-      selectedWalletId,
-      setDropdownOpen,
-      setSelectedWalletId,
-      setSummary,
-      wallets,
-    }),
+    isDropdownOpen,
     isLoading,
-    summary: summary ?? props.dashboardSummary,
+    selectedWalletId,
+    setDropdownOpen,
+    setLoading,
+    setSelectedWalletId,
+    setSummary,
+    summary,
   };
 }
 
 function useSummaryCardSummaryRequest(
   apiMonth: string,
+  periodId: string | undefined,
   selectedWalletId: string,
   setSummary: (summary: DashboardSummary | null) => void,
   setLoading: (value: boolean) => void,
 ) {
   useEffect(() => createSummaryFilterLoadEffect(
     apiMonth,
+    periodId,
     selectedWalletId,
     setSummary,
     setLoading,
-  ), [apiMonth, selectedWalletId, setLoading, setSummary]);
+  ), [apiMonth, periodId, selectedWalletId, setLoading, setSummary]);
 }
 
 function getSummaryCardFilter(params: {
@@ -290,6 +325,7 @@ function createSummaryWalletLoadEffect(setWallets: (wallets: Wallet[]) => void) 
 
 function createSummaryFilterLoadEffect(
   apiMonth: string,
+  periodId: string | undefined,
   walletId: string,
   setSummary: (summary: DashboardSummary | null) => void,
   setLoading: (value: boolean) => void,
@@ -299,6 +335,7 @@ function createSummaryFilterLoadEffect(
   if (walletId !== 'all') {
     loadWalletSummary({
       apiMonth,
+      periodId,
       setLoading: value => isMounted && setLoading(value),
       setSummary: value => isMounted && setSummary(value),
       walletId,
@@ -322,6 +359,7 @@ async function loadSummaryWallets(setWallets: (wallets: Wallet[]) => void) {
 
 async function loadWalletSummary(params: {
   apiMonth: string;
+  periodId?: string;
   setLoading: (value: boolean) => void;
   setSummary: (summary: DashboardSummary | null) => void;
   walletId: string;
@@ -335,10 +373,24 @@ async function loadWalletSummary(params: {
   params.setLoading(true);
 
   try {
-    params.setSummary((await getDashboardSummary(token, params.apiMonth, params.walletId)).data);
+    params.setSummary(await fetchWalletSummary(token, params));
   } finally {
     params.setLoading(false);
   }
+}
+
+async function fetchWalletSummary(
+  token: string,
+  params: Pick<Parameters<typeof loadWalletSummary>[0], 'apiMonth' | 'periodId' | 'walletId'>,
+) {
+  return (
+    await getDashboardSummary(
+      token,
+      params.apiMonth,
+      params.walletId,
+      params.periodId,
+    )
+  ).data;
 }
 
 function getCardLoading(

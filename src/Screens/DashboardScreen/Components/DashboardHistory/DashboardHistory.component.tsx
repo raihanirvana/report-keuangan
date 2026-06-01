@@ -15,14 +15,12 @@ import {
 import {
   getTransactions,
   getWallets,
-  type DashboardSummary,
   type Transaction,
   type TransactionType,
   type Wallet,
 } from '../../../../Services';
 import { getAuthToken } from '../../../../Utils/authStorage';
 import { getCategoryIconValue } from '../../../../Utils/categoryIcons';
-import { monthOptions } from '../../DashboardScreen.data';
 import type {
   FullHistoryGroupData,
   HistoryFilter,
@@ -328,7 +326,6 @@ function renderFullHistoryPeriod(
       onClose={params.closeSheet}
       onGoBack={params.showList}
       period={params.props.historyPeriod}
-      range={getAvailablePeriodRange(params.props.availablePeriod)}
     />
   );
 }
@@ -710,11 +707,6 @@ function FullHistoryEmptyState() {
 }
 
 function FullHistoryPeriodContent(props: FullHistoryPeriodContentProps) {
-  const options = getPeriodOptionsFromRange(
-    props.range,
-    props.period.selectedYear,
-  );
-
   return (
     <>
       <SheetHeader
@@ -726,7 +718,6 @@ function FullHistoryPeriodContent(props: FullHistoryPeriodContentProps) {
       />
       <FullHistoryPeriodOptions
         onApply={props.onApply}
-        options={options}
         period={props.period}
       />
     </>
@@ -735,18 +726,11 @@ function FullHistoryPeriodContent(props: FullHistoryPeriodContentProps) {
 
 function FullHistoryPeriodOptions(props: {
   onApply: () => void;
-  options: ReturnType<typeof getPeriodOptionsFromRange>;
   period: PeriodState;
 }) {
-  const selectYear = getSelectPeriodYearHandler(props.period, props.options);
-
   return (
     <View style={styles.fullHistoryPeriodContent}>
-      <PeriodOptionGroups
-        options={props.options}
-        period={props.period}
-        selectYear={selectYear}
-      />
+      <FullHistoryPeriodList period={props.period} />
       <Pressable onPress={props.onApply} style={styles.confirmButton}>
         <Text style={styles.confirmButtonText}>Terapkan</Text>
       </Pressable>
@@ -754,26 +738,27 @@ function FullHistoryPeriodOptions(props: {
   );
 }
 
-function PeriodOptionGroups(props: {
-  options: ReturnType<typeof getPeriodOptionsFromRange>;
-  period: PeriodState;
-  selectYear: (year: string) => void;
-}) {
+function FullHistoryPeriodList(props: { period: PeriodState }) {
+  if (props.period.isLoading && props.period.periods.length === 0) {
+    return <Text style={styles.periodEmptyText}>Memuat periode...</Text>;
+  }
+
+  if (props.period.periods.length === 0) {
+    return <Text style={styles.periodEmptyText}>Belum ada periode.</Text>;
+  }
+
   return (
-    <>
-      <PeriodGroup
-        onSelectOption={props.period.setSelectedMonth}
-        options={props.options.monthOptions}
-        selectedOption={props.period.selectedMonth}
-        title="Bulan"
-      />
-      <PeriodGroup
-        onSelectOption={props.selectYear}
-        options={props.options.yearOptions}
-        selectedOption={props.period.selectedYear}
-        title="Tahun"
-      />
-    </>
+    <View style={styles.periodOptionGrid}>
+      {props.period.periods.map(period => (
+        <PeriodOption
+          isActive={period.id === props.period.selectedPeriodId}
+          key={period.id}
+          label={period.name || period.label}
+          meta={period.label}
+          onPress={() => props.period.setSelectedPeriodId(period.id)}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -821,42 +806,10 @@ function SheetCloseButton(props: { onClose: () => void }) {
   );
 }
 
-function PeriodGroup(props: {
-  onSelectOption: (option: string) => void;
-  options: readonly string[];
-  selectedOption: string;
-  title: string;
-}) {
-  return (
-    <>
-      <Text style={styles.periodGroupTitle}>{props.title}</Text>
-      <PeriodOptionGrid {...props} />
-    </>
-  );
-}
-
-function PeriodOptionGrid(props: {
-  onSelectOption: (option: string) => void;
-  options: readonly string[];
-  selectedOption: string;
-}) {
-  return (
-    <View style={styles.periodOptionGrid}>
-      {props.options.map(option => (
-        <PeriodOption
-          isActive={option === props.selectedOption}
-          key={option}
-          label={option}
-          onPress={() => props.onSelectOption(option)}
-        />
-      ))}
-    </View>
-  );
-}
-
 function PeriodOption(props: {
   isActive: boolean;
   label: string;
+  meta?: string;
   onPress: () => void;
 }) {
   return (
@@ -872,7 +825,25 @@ function PeriodOption(props: {
       >
         {props.label}
       </Text>
+      <PeriodOptionMeta isActive={props.isActive} meta={props.meta} />
     </Pressable>
+  );
+}
+
+function PeriodOptionMeta(props: { isActive: boolean; meta?: string }) {
+  if (!props.meta) {
+    return null;
+  }
+
+  return (
+    <Text
+      style={[
+        styles.periodOptionMeta,
+        props.isActive && styles.periodOptionMetaActive,
+      ]}
+    >
+      {props.meta}
+    </Text>
   );
 }
 
@@ -893,6 +864,7 @@ type HistoryWalletFilterState = {
 function useFullHistoryGroups(props: {
   historyMonth: string;
   isFullHistoryVisible: boolean;
+  periodId?: string;
   refreshKey: number;
   selectedHistoryFilter: HistoryFilter;
   selectedWalletId: string;
@@ -905,6 +877,7 @@ function useFullHistoryGroups(props: {
     [
       props.historyMonth,
       props.isFullHistoryVisible,
+      props.periodId,
       props.refreshKey,
       props.selectedHistoryFilter,
       props.selectedWalletId,
@@ -918,6 +891,7 @@ function createFullHistoryLoadEffect(
   props: {
     historyMonth: string;
     isFullHistoryVisible: boolean;
+    periodId?: string;
     selectedHistoryFilter: HistoryFilter;
     selectedWalletId: string;
   },
@@ -944,6 +918,7 @@ function startFullHistoryGroupLoad(
   loadFullHistoryGroups({
     filter: props.selectedHistoryFilter,
     month: props.historyMonth,
+    periodId: props.periodId,
     setGroups: items => isMounted() && setGroups(items),
     setLoading: value => isMounted() && setLoading(value),
     walletId: props.selectedWalletId,
@@ -953,6 +928,7 @@ function startFullHistoryGroupLoad(
 async function loadFullHistoryGroups(params: {
   filter: HistoryFilter;
   month: string;
+  periodId?: string;
   setGroups: (groups: FullHistoryGroupData[]) => void;
   setLoading: (value: boolean) => void;
   walletId: string;
@@ -962,6 +938,7 @@ async function loadFullHistoryGroups(params: {
   try {
     params.setGroups(await fetchFullHistoryGroups(
       params.month,
+      params.periodId,
       params.filter,
       params.walletId,
     ));
@@ -1062,6 +1039,7 @@ function getHistoryWalletOptions(wallets: Array<{ id: string; name: string }>) {
 
 async function fetchFullHistoryGroups(
   month: string,
+  periodId: string | undefined,
   filter: HistoryFilter,
   walletId: string,
 ) {
@@ -1073,17 +1051,23 @@ async function fetchFullHistoryGroups(
 
   const response = await getTransactions(
     token,
-    getHistoryQuery(month, filter, walletId),
+    getHistoryQuery(month, periodId, filter, walletId),
   );
 
   return groupHistoryItems(response.data.map(mapTransactionToHistoryItem));
 }
 
-function getHistoryQuery(month: string, filter: HistoryFilter, walletId: string) {
+function getHistoryQuery(
+  month: string,
+  periodId: string | undefined,
+  filter: HistoryFilter,
+  walletId: string,
+) {
   return {
     limit: 50,
     month,
     page: 1,
+    periodId,
     type: getTransactionTypeFilter(filter),
     walletId: walletId === 'all' ? undefined : walletId,
   };
@@ -1253,69 +1237,6 @@ function getTransactionTime(transaction: Transaction) {
   });
 }
 
-function getAvailablePeriodRange(
-  availablePeriod: DashboardSummary['availablePeriod'] | undefined,
-) {
-  const fallback = getCurrentApiMonth();
-
-  return {
-    maxMonth: availablePeriod?.maxMonth ?? fallback,
-    minMonth: availablePeriod?.minMonth ?? fallback,
-  };
-}
-
-function getPeriodOptionsFromRange(
-  range: { maxMonth: string; minMonth: string },
-  selectedYear: string,
-) {
-  return {
-    monthOptions: getAvailableMonthOptions(range, selectedYear),
-    range,
-    yearOptions: getAvailableYearOptions(range),
-  };
-}
-
-function getSelectPeriodYearHandler(
-  period: PeriodState,
-  options: ReturnType<typeof getPeriodOptionsFromRange>,
-) {
-  return (year: string) => {
-    const monthOptionsForYear = getAvailableMonthOptions(options.range, year);
-    period.setSelectedYear(year);
-
-    if (!monthOptionsForYear.some(month => month === period.selectedMonth)) {
-      period.setSelectedMonth(monthOptionsForYear[0] ?? monthOptions[0]);
-    }
-  };
-}
-
-function getAvailableYearOptions(range: {
-  maxMonth: string;
-  minMonth: string;
-}) {
-  const minYear = Number(range.minMonth.slice(0, 4));
-  const maxYear = Number(range.maxMonth.slice(0, 4));
-
-  return Array.from(
-    { length: Math.max(maxYear - minYear + 1, 1) },
-    (_, index) => String(minYear + index),
-  );
-}
-
-function getAvailableMonthOptions(
-  range: { maxMonth: string; minMonth: string },
-  selectedYear: string,
-) {
-  return monthOptions.filter((monthLabel, index) => {
-    const apiMonth = `${selectedYear}-${String(index + 1).padStart(2, '0')}`;
-
-    return apiMonth >= range.minMonth && apiMonth <= range.maxMonth;
-  });
-}
-
-function getCurrentApiMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
 
 export { mapTransactionToHistoryItem };
 export default DashboardHistory;

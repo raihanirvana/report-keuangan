@@ -9,6 +9,7 @@ import type {
   BudgetPreviousMonth,
   Category,
   DashboardSummary,
+  PayrollPeriod,
   Transaction,
 } from '../../Services';
 
@@ -35,6 +36,7 @@ type SetLimitState = Dispatch<SetStateAction<LimitDetailState>>;
 type LimitDetailStateProps = {
   month: string;
   onChanged: () => void;
+  periodId?: string;
   visible: boolean;
 };
 
@@ -44,6 +46,7 @@ type SaveLimitParams = {
   bumpCategoryRefreshKey: () => void;
   month: string;
   onChanged: () => void;
+  periodId?: string;
   setLimitState: SetLimitState;
   setSnackbarMessage: (message: string) => void;
   setView: (view: LimitSheetView) => void;
@@ -109,6 +112,7 @@ type WalletActionMode = 'delete' | 'edit' | 'idle';
 type WalletSheetView = 'create' | 'edit' | 'list';
 
 type DashboardDataSetters = {
+  setBudgetRefreshKey: Dispatch<SetStateAction<number>>;
   setChartAnimationKey: Dispatch<SetStateAction<number>>;
   setDashboardSummary: Dispatch<SetStateAction<DashboardSummary | null>>;
   setErrorMessage: Dispatch<SetStateAction<string>>;
@@ -117,6 +121,7 @@ type DashboardDataSetters = {
 };
 
 type DashboardDataState = DashboardDataSetters & {
+  budgetRefreshKey: number;
   chartAnimationKey: number;
   dashboardSummary: DashboardSummary | null;
   errorMessage: string;
@@ -126,8 +131,14 @@ type DashboardDataState = DashboardDataSetters & {
 };
 
 type PeriodState = {
+  isLoading: boolean;
+  periods: PayrollPeriod[];
+  selectedPeriodId: string;
   selectedMonth: string;
   selectedYear: string;
+  setPeriods: Dispatch<SetStateAction<PayrollPeriod[]>>;
+  setLoading: Dispatch<SetStateAction<boolean>>;
+  setSelectedPeriodId: Dispatch<SetStateAction<string>>;
   setSelectedMonth: Dispatch<SetStateAction<string>>;
   setSelectedYear: Dispatch<SetStateAction<string>>;
 };
@@ -135,6 +146,7 @@ type PeriodState = {
 type DashboardPeriod = {
   apiMonth: string;
   label: string;
+  periodId?: string;
 };
 
 type DashboardScreenProps = {
@@ -168,20 +180,24 @@ type DashboardSheetState = {
 type DashboardSheetsProps = DashboardSheetState & {
   apiMonth: string;
   onDashboardChanged: () => void;
+  periodId?: string;
 };
 
 type DashboardContentProps = {
   apiMonth: string;
   availablePeriod?: DashboardSummary['availablePeriod'];
+  budgetRefreshKey: number;
   chartAnimationKey: number;
   dashboardSummary: DashboardSummary | null;
   filterLabel: string;
   historyMonth: string;
   historyMonthLabel: string;
+  historyPeriodId?: string;
   historyItems: HistoryItemData[];
   historyPeriod: PeriodState;
   isFullHistoryVisible: boolean;
   isRefreshing: boolean;
+  periodId?: string;
   onChanged: () => void;
   onCloseFullHistory: () => void;
   onOpenFullHistory: (filter?: HistoryFilter, walletId?: string) => void;
@@ -201,6 +217,7 @@ type SummaryCardsProps = {
   dashboardSummary: DashboardSummary | null;
   isLoading: boolean;
   onOpenHistory: (filter: HistoryFilter, walletId?: string) => void;
+  periodId?: string;
   periodLabel: string;
 };
 
@@ -210,6 +227,7 @@ type DashboardMainContentProps = {
   filterLabel: string;
   historyPeriod: PeriodState;
   historyPeriodFilter: DashboardPeriod;
+  periodId?: string;
   onLogout?: () => Promise<void> | void;
   onUpdateUser?: (user: AuthUser) => Promise<void> | void;
   sheets: DashboardSheetState;
@@ -251,6 +269,7 @@ type LimitDetailSheetContentProps = {
   month: string;
   onChanged: () => void;
   onClose: () => void;
+  periodId?: string;
   visible: boolean;
 };
 
@@ -272,13 +291,13 @@ type LimitDetailListViewProps = {
 };
 
 type UsagePeriodContentProps = {
-  monthOptions: string[];
   onApply: () => void;
-  selectedMonth: string;
-  selectedYear: string;
-  setSelectedMonth: (month: string) => void;
-  setSelectedYear: (year: string) => void;
-  yearOptions: string[];
+  onCreatePeriod: (payload: {
+    endDate: string;
+    name?: string;
+    startDate: string;
+  }) => Promise<void>;
+  period: PeriodState;
 };
 
 type UsagePeriodBottomSheetProps = UsagePeriodContentProps & {
@@ -336,6 +355,7 @@ type LimitCategoryCreateContentProps = {
   onHideInfoMessage: () => void;
   onInfoMessage: (message: string) => void;
   onSaveCategory: (state: LimitCategoryFormState) => void;
+  periodId?: string;
   refreshKey: number;
   snackbarMessage: string;
 };

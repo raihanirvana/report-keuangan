@@ -23,6 +23,7 @@ type DashboardHistoryProps = {
   onSelectHistoryFilter: (filter: HistoryFilter) => void;
   selectedHistoryFilter: HistoryFilter;
   selectedHistoryWalletId: string;
+  periodId?: string;
 };
 
 type FullHistoryBottomSheetProps = Omit<
@@ -39,7 +40,6 @@ type FullHistoryPeriodContentProps = {
   onClose: () => void;
   onGoBack: () => void;
   period: PeriodState;
-  range: { maxMonth: string; minMonth: string };
 };
 
 export type {

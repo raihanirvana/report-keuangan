@@ -14,6 +14,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 16,
   },
+  confirmButtonDisabled: {
+    opacity: 0.55,
+  },
   confirmButtonText: {
     color: colors.white,
     fontFamily: typography.fontFamily,
@@ -59,6 +62,48 @@ const styles = StyleSheet.create({
   periodContent: {
     gap: 16,
   },
+  periodCreateBox: {
+    backgroundColor: 'rgba(255, 204, 213, 0.12)',
+    borderColor: 'rgba(255, 204, 213, 0.32)',
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 12,
+    padding: 14,
+  },
+  periodCreateButton: {
+    alignItems: 'center',
+    borderColor: 'rgba(238, 43, 108, 0.28)',
+    borderRadius: 16,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    paddingVertical: 13,
+  },
+  periodCreateButtonText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  periodDateInput: {
+    flex: 1,
+  },
+  periodDateRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  periodEmptyText: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  periodErrorText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '800',
+  },
   periodGroupTitle: {
     color: colors.slate900,
     fontFamily: typography.fontFamily,
@@ -72,18 +117,41 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 204, 213, 0.32)',
     borderRadius: 16,
     borderWidth: 1,
-    flexBasis: '22%',
+    flexGrow: 1,
+    paddingHorizontal: 12,
     paddingVertical: 12,
   },
   periodOptionActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  periodOptionGrid: {
+  periodList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
     marginBottom: 8,
+  },
+  periodInput: {
+    backgroundColor: colors.white,
+    borderColor: 'rgba(255, 204, 213, 0.56)',
+    borderRadius: 16,
+    borderWidth: 1,
+    color: colors.slate900,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  periodOptionMeta: {
+    color: colors.slate400,
+    fontFamily: typography.fontFamily,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  periodOptionMetaActive: {
+    color: colors.white,
   },
   periodOptionText: {
     color: colors.slate600,

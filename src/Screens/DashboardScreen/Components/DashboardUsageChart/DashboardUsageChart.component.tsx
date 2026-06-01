@@ -192,14 +192,16 @@ function useIncomeChartRequest(
 ) {
   useEffect(() => createIncomeChartLoadEffect({
     month: props.apiMonth,
+    periodId: props.periodId,
     setItems,
     setLoading,
     setTotalAmount,
-  }), [props.apiMonth, setItems, setLoading, setTotalAmount]);
+  }), [props.apiMonth, props.periodId, setItems, setLoading, setTotalAmount]);
 }
 
 function createIncomeChartLoadEffect(params: {
   month: string;
+  periodId?: string;
   setItems: (items: CategoryDonutChartItem[]) => void;
   setLoading: (value: boolean) => void;
   setTotalAmount: (value: number) => void;
@@ -219,32 +221,54 @@ function createIncomeChartLoadEffect(params: {
 async function loadIncomeChart(params: {
   isMounted: () => boolean;
   month: string;
+  periodId?: string;
   setItems: (items: CategoryDonutChartItem[]) => void;
   setLoading: (value: boolean) => void;
   setTotalAmount: (value: number) => void;
 }) {
   const token = await getAuthToken();
 
-  if (!token || !params.isMounted()) {
+  if (!canLoadIncomeChart(token, params.isMounted)) {
     return;
   }
 
   params.setLoading(true);
 
   try {
-    const transactions = await getIncomeTransactions(token, params.month);
-    setIncomeChartData(params, transactions);
+    setIncomeChartData(
+      params,
+      await getIncomeTransactions(token, params.month, params.periodId),
+    );
   } finally {
-    if (params.isMounted()) {
-      params.setLoading(false);
-    }
+    stopIncomeChartLoading(params);
   }
 }
 
-async function getIncomeTransactions(token: string, month: string) {
+function stopIncomeChartLoading(params: {
+  isMounted: () => boolean;
+  setLoading: (value: boolean) => void;
+}) {
+  if (params.isMounted()) {
+    params.setLoading(false);
+  }
+}
+
+function canLoadIncomeChart(
+  token: string | null,
+  isMounted: () => boolean,
+): token is string {
+  return Boolean(token && isMounted());
+}
+
+async function getIncomeTransactions(
+  token: string,
+  month: string,
+  periodId?: string,
+) {
   return (await getTransactions(token, {
     limit: 1000,
     month,
+    periodId,
     type: 'INCOME',
   })).data;
 }

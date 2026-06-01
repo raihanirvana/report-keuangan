@@ -82,12 +82,19 @@ const limitDetailStyleMap = {
 };
 
 function SpendingLimitSection(props: {
+  budgetRefreshKey: number;
   dashboardSummary: DashboardSummary | null;
   isLoading: boolean;
   month: string;
   onOpenLimitDetail: () => void;
+  periodId?: string;
 }) {
-  const filter = useSpendingLimitFilter(props.month, props.dashboardSummary);
+  const filter = useSpendingLimitFilter(
+    props.month,
+    props.periodId,
+    props.dashboardSummary,
+    props.budgetRefreshKey,
+  );
   const budgetLimit = getSelectedBudgetLimit(props.dashboardSummary, filter);
 
   if (props.isLoading || filter.isLoading) {
@@ -271,27 +278,80 @@ type SpendingLimitFilterState = {
 
 function useSpendingLimitFilter(
   month: string,
+  periodId: string | undefined,
   dashboardSummary: DashboardSummary | null,
+  refreshKey: number,
 ): SpendingLimitFilterState {
+  const state = useSpendingLimitFilterLocalState();
+  const deps = getSpendingLimitFilterDeps(month, periodId, dashboardSummary, refreshKey);
+
+  useSpendingLimitFilterLoader(month, periodId, state, deps);
+
+  return getSpendingLimitFilterState(state);
+}
+
+function useSpendingLimitFilterLoader(
+  month: string,
+  periodId: string | undefined,
+  state: ReturnType<typeof useSpendingLimitFilterLocalState>,
+  deps: unknown[],
+) {
+  useEffect(
+    () => createSpendingLimitFilterLoadEffect(
+      month,
+      periodId,
+      state.setItems,
+      state.setLoading,
+    ),
+    deps,
+  );
+}
+
+function useSpendingLimitFilterLocalState() {
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState('all');
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [isLoading, setLoading] = useState(false);
-
-  useEffect(
-    () => createSpendingLimitFilterLoadEffect(month, setItems, setLoading),
-    [month, dashboardSummary?.budgetLimit.usedAmount],
-  );
 
   return {
     isDropdownOpen,
     isLoading,
     items,
     selectedBudgetId,
-    selectedLabel: getSelectedLimitLabel(selectedBudgetId, items),
-    selectBudget: getSelectBudgetHandler(setSelectedBudgetId, setDropdownOpen),
-    toggleDropdown: () => setDropdownOpen(value => !value),
+    setDropdownOpen,
+    setItems,
+    setLoading,
+    setSelectedBudgetId,
   };
+}
+
+function getSpendingLimitFilterState(
+  state: ReturnType<typeof useSpendingLimitFilterLocalState>,
+) {
+  return {
+    isDropdownOpen: state.isDropdownOpen,
+    isLoading: state.isLoading,
+    items: state.items,
+    selectedBudgetId: state.selectedBudgetId,
+    selectedLabel: getSelectedLimitLabel(state.selectedBudgetId, state.items),
+    selectBudget: getSelectBudgetHandler(state.setSelectedBudgetId, state.setDropdownOpen),
+    toggleDropdown: () => state.setDropdownOpen(value => !value),
+  };
+}
+
+function getSpendingLimitFilterDeps(
+  month: string,
+  periodId: string | undefined,
+  dashboardSummary: DashboardSummary | null,
+  refreshKey: number,
+) {
+  return [
+    month,
+    periodId,
+    refreshKey,
+    dashboardSummary?.budgetLimit.limitAmount,
+    dashboardSummary?.budgetLimit.usedAmount,
+  ];
 }
 
 function getSelectBudgetHandler(
@@ -306,6 +366,7 @@ function getSelectBudgetHandler(
 
 function createSpendingLimitFilterLoadEffect(
   month: string,
+  periodId: string | undefined,
   setItems: (items: BudgetItem[]) => void,
   setLoading: (value: boolean) => void,
 ) {
@@ -313,6 +374,7 @@ function createSpendingLimitFilterLoadEffect(
 
   loadSpendingLimitFilterItems({
     month,
+    periodId,
     setItems: value => isMounted && setItems(value),
     setLoading: value => isMounted && setLoading(value),
   }).catch(() => undefined);
@@ -324,26 +386,27 @@ function createSpendingLimitFilterLoadEffect(
 
 async function loadSpendingLimitFilterItems(params: {
   month: string;
+  periodId?: string;
   setItems: (items: BudgetItem[]) => void;
   setLoading: (value: boolean) => void;
 }) {
   params.setLoading(true);
 
   try {
-    params.setItems((await fetchBudgetItems(params.month)));
+    params.setItems(await fetchBudgetItems(params.month, params.periodId));
   } finally {
     params.setLoading(false);
   }
 }
 
-async function fetchBudgetItems(month: string) {
+async function fetchBudgetItems(month: string, periodId?: string) {
   const token = await getAuthToken();
 
   if (!token) {
     return [];
   }
 
-  return (await getBudgets(token, month)).data.items;
+  return (await getBudgets(token, month, periodId)).data.items;
 }
 
 function getSelectedLimitLabel(selectedBudgetId: string, items: BudgetItem[]) {
@@ -580,14 +643,14 @@ function mapBudgetsResponse(response: BudgetsResponse): LimitDetailState {
   };
 }
 
-async function fetchLimitDetails(month: string) {
+async function fetchLimitDetails(month: string, periodId?: string) {
   const token = await getAuthToken();
 
   if (!token) {
     return { items: [] };
   }
 
-  const response = await getBudgets(token, month);
+  const response = await getBudgets(token, month, periodId);
 
   return mapBudgetsResponse(response.data);
 }
@@ -857,6 +920,7 @@ function LimitDetailLoadingState() {
 function LimitCategoryCreateContent(props: LimitCategoryCreateContentProps) {
   const state = useLimitCategoryFormState(
     props.month,
+    props.periodId,
     props.refreshKey,
     props.onInfoMessage,
   );
@@ -989,27 +1053,68 @@ function LimitCategoryChip(props: {
 
 function useLimitCategoryFormState(
   month: string,
+  periodId: string | undefined,
   refreshKey: number,
   onInfoMessage: (message: string) => void,
 ): LimitCategoryFormState {
   const categoriesState = useExpenseCategories(refreshKey);
-  const spentCategoryIdsState = useSpentExpenseCategoryIds(month);
-  const [limitAmount, setLimitAmount] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const effectiveCategoryId = selectedCategoryId || categoriesState.categories[0]?.id || '';
-  const selectCategory = getSelectLimitCategoryHandler(
-    setSelectedCategoryId,
+  const spentCategoryIdsState = useSpentExpenseCategoryIds(month, periodId);
+  const selection = useLimitCategorySelectionState(
     spentCategoryIdsState.categoryIds,
     onInfoMessage,
   );
 
-  return {
+  return getLimitCategoryFormState({
     categories: categoriesState.categories,
     isLoading: categoriesState.isLoading || spentCategoryIdsState.isLoading,
+    limitAmount: selection.limitAmount,
+    selectCategory: selection.selectCategory,
+    selectedCategoryId: getEffectiveCategoryId(
+      selection.selectedCategoryId,
+      categoriesState.categories,
+    ),
+    setLimitAmount: selection.setLimitAmount,
+  });
+}
+
+function useLimitCategorySelectionState(
+  spentCategoryIds: Set<string>,
+  onInfoMessage: (message: string) => void,
+) {
+  const [limitAmount, setLimitAmount] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+
+  return {
     limitAmount,
-    selectedCategoryId: effectiveCategoryId,
-    setLimitAmount: (value: string) => setLimitAmount(formatMoneyInput(value)),
-    setSelectedCategoryId: selectCategory,
+    selectedCategoryId,
+    selectCategory: getSelectLimitCategoryHandler(
+      setSelectedCategoryId,
+      spentCategoryIds,
+      onInfoMessage,
+    ),
+    setLimitAmount,
+  };
+}
+
+function getEffectiveCategoryId(selectedCategoryId: string, categories: Category[]) {
+  return selectedCategoryId || categories[0]?.id || '';
+}
+
+function getLimitCategoryFormState(params: {
+  categories: Category[];
+  isLoading: boolean;
+  limitAmount: string;
+  selectCategory: (value: string) => void;
+  selectedCategoryId: string;
+  setLimitAmount: (value: string) => void;
+}): LimitCategoryFormState {
+  return {
+    categories: params.categories,
+    isLoading: params.isLoading,
+    limitAmount: params.limitAmount,
+    selectedCategoryId: params.selectedCategoryId,
+    setLimitAmount: value => params.setLimitAmount(formatMoneyInput(value)),
+    setSelectedCategoryId: params.selectCategory,
   };
 }
 
@@ -1042,13 +1147,13 @@ function useExpenseCategories(refreshKey: number) {
   };
 }
 
-function useSpentExpenseCategoryIds(month: string) {
+function useSpentExpenseCategoryIds(month: string, periodId?: string) {
   const [isLoading, setLoading] = useState(false);
   const [categoryIds, setCategoryIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    loadSpentExpenseCategoryIds(month, setCategoryIds, setLoading).catch(() => undefined);
-  }, [month]);
+    loadSpentExpenseCategoryIds(month, periodId, setCategoryIds, setLoading).catch(() => undefined);
+  }, [month, periodId]);
 
   return {
     categoryIds,
@@ -1072,12 +1177,13 @@ async function loadExpenseCategories(
 
 async function loadSpentExpenseCategoryIds(
   month: string,
+  periodId: string | undefined,
   setCategoryIds: (value: Set<string>) => void,
   setLoading: (value: boolean) => void,
 ) {
   try {
     setLoading(true);
-    setCategoryIds(await fetchSpentExpenseCategoryIds(month));
+    setCategoryIds(await fetchSpentExpenseCategoryIds(month, periodId));
   } catch {
     setCategoryIds(new Set());
   } finally {
@@ -1097,22 +1203,22 @@ async function fetchExpenseCategories() {
   return response.data;
 }
 
-async function fetchSpentExpenseCategoryIds(month: string) {
-  const summary = await fetchDashboardSummary(month);
+async function fetchSpentExpenseCategoryIds(month: string, periodId?: string) {
+  const summary = await fetchDashboardSummary(month, periodId);
 
   return new Set(
     (summary?.chart.categories ?? []).map(category => category.categoryId),
   );
 }
 
-async function fetchDashboardSummary(month: string) {
+async function fetchDashboardSummary(month: string, periodId?: string) {
   const token = await getAuthToken();
 
   if (!token) {
     return null;
   }
 
-  const response = await getDashboardSummary(token, month);
+  const response = await getDashboardSummary(token, month, 'all', periodId);
 
   return response.data;
 }
@@ -1127,6 +1233,7 @@ function LimitCategoryCreateView(props: {
   onHideSnackbar: () => void;
   onInfoMessage: (message: string) => void;
   onSaveCategory: (state: LimitCategoryFormState) => void;
+  periodId?: string;
   refreshKey: number;
   snackbarMessage: string;
 }) {
@@ -1149,6 +1256,7 @@ function LimitCategoryCreateBody(props: {
   onHideSnackbar: () => void;
   onInfoMessage: (message: string) => void;
   onSaveCategory: (state: LimitCategoryFormState) => void;
+  periodId?: string;
   refreshKey: number;
   snackbarMessage: string;
 }) {
@@ -1182,6 +1290,7 @@ function getLimitCategoryCreateContentProps(props: {
   onHideSnackbar: () => void;
   onInfoMessage: (message: string) => void;
   onSaveCategory: (state: LimitCategoryFormState) => void;
+  periodId?: string;
   refreshKey: number;
   snackbarMessage: string;
 }): LimitCategoryCreateContentProps {
@@ -1192,6 +1301,7 @@ function getLimitCategoryCreateContentProps(props: {
     onHideInfoMessage: props.onHideSnackbar,
     onInfoMessage: props.onInfoMessage,
     onSaveCategory: props.onSaveCategory,
+    periodId: props.periodId,
     refreshKey: props.refreshKey,
     snackbarMessage: props.snackbarMessage,
   };
@@ -1455,6 +1565,7 @@ function useLimitDetailState(props: LimitDetailStateProps) {
 
   useLimitDetailRefresh(
     props.month,
+    props.periodId,
     props.visible,
     state.setFetching,
     state.setLimitState,
@@ -1683,7 +1794,7 @@ function getLimitDetailActions(
 }
 
 function getSaveLimitParams(
-  props: Pick<LimitDetailStateProps, 'month' | 'onChanged'>,
+  props: Pick<LimitDetailStateProps, 'month' | 'onChanged' | 'periodId'>,
   bumpCategoryRefreshKey: () => void,
   setLimitState: SetLimitState,
   setSnackbarMessage: (message: string) => void,
@@ -1693,6 +1804,7 @@ function getSaveLimitParams(
     bumpCategoryRefreshKey,
     month: props.month,
     onChanged: props.onChanged,
+    periodId: props.periodId,
     setLimitState,
     setSnackbarMessage,
     setView,
@@ -1713,6 +1825,7 @@ function getUsePreviousMonthHandler(
 
     copyPreviousLimitDetails(
       params.month,
+      params.periodId,
       limitState.previousMonth,
       params.setLimitState,
     )
@@ -1741,7 +1854,7 @@ function getSaveLimitCategoryHandler(
 ) {
   return (state: LimitCategoryFormState) => {
     setMutationState(true, 'Menyimpan batas kategori...');
-    createLimitCategory(params.month, state)
+    createLimitCategory(params.month, params.periodId, state)
       .then(limitState => handleCreateLimitSuccess(params, limitState))
       .catch(() => params.setSnackbarMessage('Batas kategori belum bisa disimpan.'))
       .finally(() => setMutationState(false, ''));
@@ -1754,7 +1867,7 @@ function getEditLimitCategoryHandler(
 ) {
   return (state: LimitEditFormState) => {
     setMutationState(true, 'Menyimpan perubahan batas...');
-    updateLimitCategory(params.month, state)
+    updateLimitCategory(params.month, params.periodId, state)
       .then(limitState => handleUpdateLimitSuccess(params, limitState))
       .catch(() => params.setSnackbarMessage('Batas kategori belum bisa diperbarui.'))
       .finally(() => setMutationState(false, ''));
@@ -1805,7 +1918,7 @@ function getDeleteLimitCategoryHandler(
   return (budgetId: string) => {
     params.setLimitState(state => removeLimitDetailItem(state, budgetId));
     setMutationState(true, 'Menghapus batas kategori...');
-    deleteLimitCategory(params.month, budgetId)
+    deleteLimitCategory(params.month, params.periodId, budgetId)
       .then(limitState => handleDeleteLimitSuccess(params, limitState))
       .catch(() => handleDeleteLimitError(params))
       .finally(() => setMutationState(false, ''));
@@ -1829,7 +1942,7 @@ function handleDeleteLimitSuccess(
 }
 
 function handleDeleteLimitError(params: SaveLimitParams) {
-  fetchLimitDetails(params.month)
+  fetchLimitDetails(params.month, params.periodId)
     .then(params.setLimitState)
     .catch(() => undefined);
   params.setSnackbarMessage('Batas kategori belum bisa dihapus.');
@@ -1876,6 +1989,7 @@ function handleUpdateLimitSuccess(
 
 function useLimitDetailRefresh(
   month: string,
+  periodId: string | undefined,
   visible: boolean,
   setFetching: (value: boolean) => void,
   setLimitState: SetLimitState,
@@ -1885,12 +1999,12 @@ function useLimitDetailRefresh(
     if (visible) {
       setLoadingLabel('Memuat batas pengeluaran...');
       setFetching(true);
-      fetchLimitDetails(month)
+      fetchLimitDetails(month, periodId)
         .then(setLimitState)
         .catch(() => setLimitState({ items: [] }))
         .finally(() => setFetching(false));
     }
-  }, [month, setFetching, setLimitState, setLoadingLabel, visible]);
+  }, [month, periodId, setFetching, setLimitState, setLoadingLabel, visible]);
 }
 
 function createLimitMutationStateSetter(
@@ -1911,6 +2025,7 @@ function createLimitMutationStateSetter(
 
 async function copyPreviousLimitDetails(
   month: string,
+  periodId: string | undefined,
   previousMonth: BudgetPreviousMonth | undefined,
   setLimitState: SetLimitState,
 ) {
@@ -1922,13 +2037,16 @@ async function copyPreviousLimitDetails(
 
   const response = await copyPreviousBudgets(token, {
     sourceMonth: previousMonth.month,
+    sourcePeriodId: previousMonth.periodId,
     targetMonth: month,
+    targetPeriodId: periodId,
   });
   setLimitState(mapBudgetsResponse(response.data));
 }
 
 async function createLimitCategory(
   month: string,
+  periodId: string | undefined,
   state: LimitCategoryFormState,
 ) {
   const token = await getAuthToken();
@@ -1937,9 +2055,9 @@ async function createLimitCategory(
     throw new Error('Invalid limit category form');
   }
 
-  await createBudget(token, getCreateBudgetPayload(month, state));
+  await createBudget(token, getCreateBudgetPayload(month, periodId, state));
 
-  return fetchLimitDetails(month);
+  return fetchLimitDetails(month, periodId);
 }
 
 async function createCustomCategory(state: CustomCategoryFormState) {
@@ -1954,6 +2072,7 @@ async function createCustomCategory(state: CustomCategoryFormState) {
 
 async function updateLimitCategory(
   month: string,
+  periodId: string | undefined,
   state: LimitEditFormState,
 ) {
   const token = await getAuthToken();
@@ -1965,21 +2084,26 @@ async function updateLimitCategory(
   await updateBudget(token, state.budgetId, {
     limitAmount: parseWalletBalance(state.limitAmount),
     month,
+    periodId,
   });
 
-  return fetchLimitDetails(month);
+  return fetchLimitDetails(month, periodId);
 }
 
-async function deleteLimitCategory(month: string, budgetId: string) {
+async function deleteLimitCategory(
+  month: string,
+  periodId: string | undefined,
+  budgetId: string,
+) {
   const token = await getAuthToken();
 
   if (!token) {
     throw new Error('Missing auth token');
   }
 
-  await deleteBudget(token, budgetId, month);
+  await deleteBudget(token, budgetId, month, periodId);
 
-  return fetchLimitDetails(month);
+  return fetchLimitDetails(month, periodId);
 }
 
 function isLimitCategoryFormValid(state: LimitCategoryFormState) {
@@ -1996,12 +2120,14 @@ function isLimitEditFormValid(state: LimitEditFormState) {
 
 function getCreateBudgetPayload(
   month: string,
+  periodId: string | undefined,
   state: LimitCategoryFormState,
 ): CreateBudgetPayload {
   return {
     categoryId: state.selectedCategoryId,
     limitAmount: parseWalletBalance(state.limitAmount),
     month,
+    periodId,
   };
 }
 
@@ -2058,6 +2184,7 @@ function LimitDetailCreateRoute(params: {
       onHideSnackbar={params.limitSheet.hideSnackbar}
       onInfoMessage={params.limitSheet.showSnackbar}
       onSaveCategory={params.limitSheet.saveCategory}
+      periodId={params.props.periodId}
       refreshKey={params.limitSheet.categoryRefreshKey}
       snackbarMessage={params.limitSheet.snackbarMessage}
     />
@@ -2123,6 +2250,7 @@ function LimitDetailBottomSheet(props: {
   month: string;
   onChanged: () => void;
   onClose: () => void;
+  periodId?: string;
   visible: boolean;
 }) {
   return <LimitDetailBottomSheetContent {...props} />;
@@ -2132,6 +2260,7 @@ function LimitDetailBottomSheetContent(props: {
   month: string;
   onChanged: () => void;
   onClose: () => void;
+  periodId?: string;
   visible: boolean;
 }) {
   const limitSheet = useLimitDetailState(props);
@@ -2162,6 +2291,7 @@ function renderLimitDetailSheetNode(
     month: string;
     onChanged: () => void;
     onClose: () => void;
+    periodId?: string;
     visible: boolean;
   },
 ) {
@@ -2172,6 +2302,7 @@ function renderLimitDetailSheetNode(
       month={props.month}
       onChanged={props.onChanged}
       onClose={props.onClose}
+      periodId={props.periodId}
       visible={props.visible}
     />
   );

@@ -8,11 +8,21 @@ import type {
   UpdateBudgetPayload,
 } from './budgets.types';
 
-function getBudgets(token: string, month: string) {
-  return apiRequest<BudgetsResponse>(`/budgets?month=${month}`, {
+function getBudgets(token: string, month: string, periodId?: string | null) {
+  return apiRequest<BudgetsResponse>(getBudgetsPath(month, periodId), {
     method: 'GET',
     token,
   });
+}
+
+function getBudgetsPath(month: string, periodId?: string | null) {
+  const params = new URLSearchParams({ month });
+
+  if (periodId) {
+    params.set('periodId', periodId);
+  }
+
+  return `/budgets?${params.toString()}`;
 }
 
 function copyPreviousBudgets(
@@ -34,11 +44,30 @@ function createBudget(token: string, payload: CreateBudgetPayload) {
   });
 }
 
-function deleteBudget(token: string, budgetId: string, month: string) {
-  return apiRequest<void>(`/budgets/${budgetId}?month=${month}`, {
+function deleteBudget(
+  token: string,
+  budgetId: string,
+  month: string,
+  periodId?: string | null,
+) {
+  return apiRequest<void>(getDeleteBudgetPath(budgetId, month, periodId), {
     method: 'DELETE',
     token,
   });
+}
+
+function getDeleteBudgetPath(
+  budgetId: string,
+  month: string,
+  periodId?: string | null,
+) {
+  const params = new URLSearchParams({ month });
+
+  if (periodId) {
+    params.set('periodId', periodId);
+  }
+
+  return `/budgets/${budgetId}?${params.toString()}`;
 }
 
 function updateBudget(

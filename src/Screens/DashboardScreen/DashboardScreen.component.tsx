@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -18,9 +19,12 @@ import {
   type BottomSheetDragHandleProps,
 } from '../../Components/BottomSheet';
 import {
+  createPeriod,
   getDashboardSummary,
+  getPeriods,
   getTransactions,
   type DashboardSummary,
+  type PayrollPeriod,
 } from '../../Services';
 import { colors } from '../../Theme';
 import { getAuthToken } from '../../Utils/authStorage';
@@ -113,84 +117,182 @@ function SheetHeader(props: {
 function PeriodOption(props: {
   isActive: boolean;
   label: string;
+  meta?: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       onPress={props.onPress}
-      style={[
-        styles.periodOption,
-        props.isActive && styles.periodOptionActive,
-      ]}
+      style={[styles.periodOption, props.isActive && styles.periodOptionActive]}
     >
-      <Text
-        style={[
-          styles.periodOptionText,
-          props.isActive && styles.periodOptionTextActive,
-        ]}
-      >
-        {props.label}
-      </Text>
+      <PeriodOptionLabel isActive={props.isActive} label={props.label} />
+      <PeriodOptionMeta isActive={props.isActive} meta={props.meta} />
     </Pressable>
   );
 }
 
-function PeriodOptionGrid(props: {
-  options: readonly string[];
-  selectedOption: string;
-  onSelectOption: (option: string) => void;
+function PeriodOptionLabel(props: { isActive: boolean; label: string }) {
+  return (
+    <Text
+      style={[
+        styles.periodOptionText,
+        props.isActive && styles.periodOptionTextActive,
+      ]}
+    >
+      {props.label}
+    </Text>
+  );
+}
+
+function PeriodOptionMeta(props: { isActive: boolean; meta?: string }) {
+  if (!props.meta) {
+    return null;
+  }
+
+  return (
+    <Text
+      style={[
+        styles.periodOptionMeta,
+        props.isActive && styles.periodOptionMetaActive,
+      ]}
+    >
+      {props.meta}
+    </Text>
+  );
+}
+
+function UsagePeriodContent(props: UsagePeriodContentProps) {
+  const form = usePeriodCreateForm(props.onCreatePeriod);
+
+  return (
+    <View style={styles.periodContent}>
+      <PeriodList
+        isLoading={props.period.isLoading}
+        onSelect={props.period.setSelectedPeriodId}
+        periods={props.period.periods}
+        selectedPeriodId={props.period.selectedPeriodId}
+      />
+      <PeriodCreateForm form={form} />
+      <Pressable
+        disabled={props.period.isLoading}
+        onPress={props.onApply}
+        style={[
+          styles.confirmButton,
+          props.period.isLoading && styles.confirmButtonDisabled,
+        ]}
+      >
+        <Text style={styles.confirmButtonText}>Terapkan</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function PeriodList(props: {
+  isLoading: boolean;
+  onSelect: (periodId: string) => void;
+  periods: PayrollPeriod[];
+  selectedPeriodId: string;
+}) {
+  if (props.isLoading && props.periods.length === 0) {
+    return <Text style={styles.periodEmptyText}>Memuat periode...</Text>;
+  }
+
+  if (props.periods.length === 0) {
+    return <Text style={styles.periodEmptyText}>Belum ada periode.</Text>;
+  }
+
+  return (
+    <View>
+      <Text style={styles.periodGroupTitle}>Periode Gajian</Text>
+      <PeriodListItems {...props} />
+    </View>
+  );
+}
+
+function PeriodListItems(props: {
+  onSelect: (periodId: string) => void;
+  periods: PayrollPeriod[];
+  selectedPeriodId: string;
 }) {
   return (
-    <View style={styles.periodOptionGrid}>
-      {props.options.map(option => (
+    <View style={styles.periodList}>
+      {props.periods.map(period => (
         <PeriodOption
-          isActive={option === props.selectedOption}
-          key={option}
-          label={option}
-          onPress={() => props.onSelectOption(option)}
+          isActive={period.id === props.selectedPeriodId}
+          key={period.id}
+          label={period.name || period.label}
+          meta={period.label}
+          onPress={() => props.onSelect(period.id)}
         />
       ))}
     </View>
   );
 }
 
-function PeriodGroup(props: {
-  onSelectOption: (option: string) => void;
-  options: readonly string[];
-  selectedOption: string;
-  title: string;
-}) {
+function PeriodCreateForm(props: { form: ReturnType<typeof usePeriodCreateForm> }) {
   return (
-    <>
-      <Text style={styles.periodGroupTitle}>{props.title}</Text>
-      <PeriodOptionGrid
-        onSelectOption={props.onSelectOption}
-        options={props.options}
-        selectedOption={props.selectedOption}
-      />
-    </>
+    <View style={styles.periodCreateBox}>
+      <Text style={styles.periodGroupTitle}>Buat Periode Baru</Text>
+      <PeriodNameInput form={props.form} />
+      <PeriodDateInputs form={props.form} />
+      <PeriodFormMessage message={props.form.errorMessage} />
+      <PeriodCreateButton form={props.form} />
+    </View>
   );
 }
 
-function UsagePeriodContent(props: UsagePeriodContentProps) {
+function PeriodNameInput(props: { form: ReturnType<typeof usePeriodCreateForm> }) {
   return (
-    <View style={styles.periodContent}>
-      <PeriodGroup
-        onSelectOption={props.setSelectedMonth}
-        options={props.monthOptions}
-        selectedOption={props.selectedMonth}
-        title="Bulan"
+    <TextInput
+      onChangeText={props.form.setName}
+      placeholder="Nama periode, mis. Gajian Juni"
+      placeholderTextColor={colors.slate400}
+      style={styles.periodInput}
+      value={props.form.name}
+    />
+  );
+}
+
+function PeriodDateInputs(props: { form: ReturnType<typeof usePeriodCreateForm> }) {
+  return (
+    <View style={styles.periodDateRow}>
+      <TextInput
+        onChangeText={props.form.setStartDate}
+        placeholder="Mulai: YYYY-MM-DD"
+        placeholderTextColor={colors.slate400}
+        style={[styles.periodInput, styles.periodDateInput]}
+        value={props.form.startDate}
       />
-      <PeriodGroup
-        onSelectOption={props.setSelectedYear}
-        options={props.yearOptions}
-        selectedOption={props.selectedYear}
-        title="Tahun"
+      <TextInput
+        onChangeText={props.form.setEndDate}
+        placeholder="Sampai: YYYY-MM-DD"
+        placeholderTextColor={colors.slate400}
+        style={[styles.periodInput, styles.periodDateInput]}
+        value={props.form.endDate}
       />
-      <Pressable onPress={props.onApply} style={styles.confirmButton}>
-        <Text style={styles.confirmButtonText}>Terapkan</Text>
-      </Pressable>
     </View>
+  );
+}
+
+function PeriodFormMessage(props: { message: string }) {
+  if (!props.message) {
+    return null;
+  }
+
+  return <Text style={styles.periodErrorText}>{props.message}</Text>;
+}
+
+function PeriodCreateButton(props: { form: ReturnType<typeof usePeriodCreateForm> }) {
+  return (
+    <Pressable
+      disabled={props.form.isSaving}
+      onPress={props.form.save}
+      style={styles.periodCreateButton}
+    >
+      <Text style={styles.periodCreateButtonText}>
+        {props.form.isSaving ? 'Menyimpan...' : 'Tambah Periode'}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -254,6 +356,7 @@ function DashboardSheets(props: DashboardSheetsProps) {
         month={props.apiMonth}
         onChanged={props.onDashboardChanged}
         onClose={props.onCloseLimitDetail}
+        periodId={props.periodId}
         visible={props.isLimitDetailVisible}
       />
       <AddSheetOverlay {...props} />
@@ -308,6 +411,7 @@ function DashboardMiddleSections(props: DashboardContentProps) {
         dashboardSummary={props.dashboardSummary}
         isLoading={props.isRefreshing}
         onOpenHistory={props.onOpenFullHistory}
+        periodId={props.periodId}
         periodLabel={props.filterLabel}
       />
       <DashboardUsageChart
@@ -317,6 +421,7 @@ function DashboardMiddleSections(props: DashboardContentProps) {
         filterLabel={props.filterLabel}
         isLoading={props.isRefreshing}
         onOpenUsagePeriod={props.onOpenUsagePeriod}
+        periodId={props.periodId}
       />
     </>
   );
@@ -326,10 +431,12 @@ function DashboardFooterSections(props: DashboardContentProps) {
   return (
     <>
       <DashboardSpendingLimit
+        budgetRefreshKey={props.budgetRefreshKey}
         dashboardSummary={props.dashboardSummary}
         isLoading={props.isRefreshing}
         month={props.apiMonth}
         onOpenLimitDetail={props.onOpenLimitDetail}
+        periodId={props.periodId}
       />
       <DashboardHistorySection {...props} />
     </>
@@ -350,6 +457,7 @@ function DashboardHistorySection(props: DashboardContentProps) {
       onCloseFullHistory={props.onCloseFullHistory}
       onOpenFullHistory={() => props.onOpenFullHistory()}
       onSelectHistoryFilter={props.onSelectHistoryFilter}
+      periodId={props.historyPeriodId}
       selectedHistoryFilter={props.selectedHistoryFilter}
       selectedHistoryWalletId={props.selectedHistoryWalletId}
     />
@@ -493,26 +601,218 @@ function getDashboardSheetOpenActions(params: {
 }
 
 function usePeriodState(initialApiMonth = getCurrentApiMonth()) {
+  const [periods, setPeriods] = useState<PayrollPeriod[]>([]);
+  const [selectedPeriodId, setSelectedPeriodId] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>(
     getMonthLabel(initialApiMonth),
   );
   const [selectedYear, setSelectedYear] = useState(getYearLabel(initialApiMonth));
+  const [isLoading, setLoading] = useState(false);
+
+  usePeriodOptionsLoader(setPeriods, setSelectedPeriodId, setLoading);
 
   return {
+    isLoading,
+    periods,
+    selectedPeriodId,
     selectedMonth,
     selectedYear,
+    setLoading,
+    setPeriods,
+    setSelectedPeriodId,
     setSelectedMonth,
     setSelectedYear,
   };
 }
 
+function usePeriodCreateForm(
+  onCreatePeriod: UsagePeriodContentProps['onCreatePeriod'],
+) {
+  const [name, setName] = useState('');
+  const [startDate, setStartDate] = useState(getTodayInputDate());
+  const [endDate, setEndDate] = useState(getNextMonthInputDate());
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSaving, setSaving] = useState(false);
+
+  return getPeriodCreateFormState({
+    endDate,
+    errorMessage,
+    isSaving,
+    name,
+    onCreatePeriod,
+    setEndDate,
+    setErrorMessage,
+    setName,
+    setSaving,
+    setStartDate,
+    startDate,
+  });
+}
+
+function getPeriodCreateFormState(params: {
+  endDate: string;
+  errorMessage: string;
+  isSaving: boolean;
+  name: string;
+  onCreatePeriod: UsagePeriodContentProps['onCreatePeriod'];
+  setEndDate: (value: string) => void;
+  setErrorMessage: (value: string) => void;
+  setName: (value: string) => void;
+  setSaving: (value: boolean) => void;
+  setStartDate: (value: string) => void;
+  startDate: string;
+}) {
+  return {
+    endDate: params.endDate,
+    errorMessage: params.errorMessage,
+    isSaving: params.isSaving,
+    name: params.name,
+    save: () => savePeriodForm(params),
+    setEndDate: params.setEndDate,
+    setName: params.setName,
+    setStartDate: params.setStartDate,
+    startDate: params.startDate,
+  };
+}
+
+async function savePeriodForm(params: {
+  endDate: string;
+  name: string;
+  onCreatePeriod: UsagePeriodContentProps['onCreatePeriod'];
+  setEndDate: (value: string) => void;
+  setErrorMessage: (value: string) => void;
+  setName: (value: string) => void;
+  setSaving: (value: boolean) => void;
+  setStartDate: (value: string) => void;
+  startDate: string;
+}) {
+  if (!validatePeriodForm(params)) {
+    return;
+  }
+
+  params.setSaving(true);
+  params.setErrorMessage('');
+  await submitPeriodForm(params);
+}
+
+async function submitPeriodForm(params: Parameters<typeof savePeriodForm>[0]) {
+  try {
+    await runPeriodSave(params);
+    resetPeriodForm(params);
+  } catch {
+    params.setErrorMessage('Periode belum bisa dibuat. Coba lagi sebentar ya.');
+  } finally {
+    params.setSaving(false);
+  }
+}
+
+function validatePeriodForm(params: {
+  endDate: string;
+  setErrorMessage: (value: string) => void;
+  startDate: string;
+}) {
+  if (isValidPeriodInput(params.startDate, params.endDate)) {
+    return true;
+  }
+
+  params.setErrorMessage(
+    'Isi tanggal mulai dan selesai dengan format YYYY-MM-DD.',
+  );
+
+  return false;
+}
+
+async function runPeriodSave(params: {
+  endDate: string;
+  name: string;
+  onCreatePeriod: UsagePeriodContentProps['onCreatePeriod'];
+  startDate: string;
+}) {
+  await params.onCreatePeriod({
+    endDate: params.endDate,
+    name: params.name.trim() || undefined,
+    startDate: params.startDate,
+  });
+}
+
+function resetPeriodForm(params: {
+  setEndDate: (value: string) => void;
+  setName: (value: string) => void;
+  setStartDate: (value: string) => void;
+}) {
+  params.setName('');
+  params.setStartDate(getTodayInputDate());
+  params.setEndDate(getNextMonthInputDate());
+}
+
+function isValidPeriodInput(startDate: string, endDate: string) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(startDate)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)
+  ) {
+    return false;
+  }
+
+  return new Date(startDate).getTime() <= new Date(endDate).getTime();
+}
+
+function getTodayInputDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getNextMonthInputDate() {
+  const date = new Date();
+  date.setMonth(date.getMonth() + 1);
+
+  return date.toISOString().slice(0, 10);
+}
+
 function getDashboardPeriod(period: PeriodState) {
+  const selectedPeriod = period.periods.find(
+    item => item.id === period.selectedPeriodId,
+  );
   const monthIndex = getMonthNumber(period.selectedMonth);
 
   return {
     apiMonth: `${period.selectedYear}-${String(monthIndex).padStart(2, '0')}`,
-    label: `${period.selectedMonth} ${period.selectedYear}`,
+    label: selectedPeriod?.label ?? `${period.selectedMonth} ${period.selectedYear}`,
+    periodId: selectedPeriod?.id,
   };
+}
+
+function usePeriodOptionsLoader(
+  setPeriods: (periods: PayrollPeriod[]) => void,
+  setSelectedPeriodId: (periodId: string) => void,
+  setLoading: (value: boolean) => void,
+) {
+  useEffect(() => {
+    loadPeriodOptions(setPeriods, setSelectedPeriodId, setLoading)
+      .catch(() => undefined);
+  }, [setLoading, setPeriods, setSelectedPeriodId]);
+}
+
+async function loadPeriodOptions(
+  setPeriods: (periods: PayrollPeriod[]) => void,
+  setSelectedPeriodId: (periodId: string) => void,
+  setLoading: (value: boolean) => void,
+) {
+  const token = await getAuthToken();
+
+  if (!token) {
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const response = await getPeriods(token);
+    const periods = response.data;
+    const currentPeriod = periods.find(period => period.isCurrent) ?? periods[0];
+
+    setPeriods(periods);
+    setSelectedPeriodId(currentPeriod?.id ?? '');
+  } finally {
+    setLoading(false);
+  }
 }
 
 function UsagePeriodOverlay(props: {
@@ -520,39 +820,36 @@ function UsagePeriodOverlay(props: {
   period: PeriodState;
   sheets: DashboardSheetState;
 }) {
-  const options = getPeriodOptions(
-    props.availablePeriod,
-    props.period.selectedYear,
-  );
-  const selectYear = getSelectPeriodYearHandler(props.period, options);
-
   return (
     <UsagePeriodBottomSheet
-      monthOptions={options.monthOptions}
       onApply={props.sheets.onCloseUsagePeriod}
+      onCreatePeriod={payload => createAndSelectPeriod(props.period, payload)}
       onClose={props.sheets.onCloseUsagePeriod}
-      selectedMonth={props.period.selectedMonth}
-      selectedYear={props.period.selectedYear}
-      setSelectedMonth={props.period.setSelectedMonth}
-      setSelectedYear={selectYear}
+      period={props.period}
       visible={props.sheets.isUsagePeriodVisible}
-      yearOptions={options.yearOptions}
     />
   );
 }
 
-function getSelectPeriodYearHandler(
+async function createAndSelectPeriod(
   period: PeriodState,
-  options: ReturnType<typeof getPeriodOptions>,
+  payload: Parameters<UsagePeriodContentProps['onCreatePeriod']>[0],
 ) {
-  return (year: string) => {
-    const monthOptionsForYear = getAvailableMonthOptions(options.range, year);
-    period.setSelectedYear(year);
+  const token = await getAuthToken();
 
-    if (!monthOptionsForYear.some(month => month === period.selectedMonth)) {
-      period.setSelectedMonth(monthOptionsForYear[0] ?? monthOptions[0]);
-    }
-  };
+  if (!token) {
+    throw new Error('Missing token');
+  }
+
+  period.setLoading(true);
+  try {
+    const created = await createPeriod(token, payload);
+    const response = await getPeriods(token);
+    period.setPeriods(response.data);
+    period.setSelectedPeriodId(created.data.id);
+  } finally {
+    period.setLoading(false);
+  }
 }
 
 function getCurrentApiMonth() {
@@ -575,92 +872,41 @@ function getMonthNumber(monthLabel: string) {
   ) + 1;
 }
 
-function getPeriodOptions(
-  availablePeriod: DashboardSummary['availablePeriod'] | undefined,
-  selectedYear: string,
-) {
-  const range = getAvailablePeriodRange(availablePeriod);
-
-  return getPeriodOptionsFromRange(range, selectedYear);
-}
-
-function getPeriodOptionsFromRange(
-  range: { maxMonth: string; minMonth: string },
-  selectedYear: string,
-) {
-
-  return {
-    monthOptions: getAvailableMonthOptions(range, selectedYear),
-    range,
-    yearOptions: getAvailableYearOptions(range),
-  };
-}
-
-function getAvailablePeriodRange(
-  availablePeriod: DashboardSummary['availablePeriod'] | undefined,
-) {
-  const fallback = getCurrentApiMonth();
-
-  return {
-    maxMonth: availablePeriod?.maxMonth ?? fallback,
-    minMonth: availablePeriod?.minMonth ?? fallback,
-  };
-}
-
-function getAvailableYearOptions(range: {
-  maxMonth: string;
-  minMonth: string;
-}) {
-  const minYear = Number(range.minMonth.slice(0, 4));
-  const maxYear = Number(range.maxMonth.slice(0, 4));
-
-  return Array.from(
-    { length: Math.max(maxYear - minYear + 1, 1) },
-    (_, index) => String(minYear + index),
-  );
-}
-
-function getAvailableMonthOptions(
-  range: { maxMonth: string; minMonth: string },
-  selectedYear: string,
-) {
-  return monthOptions.filter((monthLabel, index) => {
-    const apiMonth = `${selectedYear}-${String(index + 1).padStart(2, '0')}`;
-
-    return apiMonth >= range.minMonth && apiMonth <= range.maxMonth;
-  });
-}
-
-async function fetchDashboardSummary(month: string) {
+async function fetchDashboardSummary(month: string, periodId?: string) {
   const token = await getAuthToken();
 
   if (!token) {
     return null;
   }
 
-  const response = await getDashboardSummary(token, month);
+  const response = await getDashboardSummary(token, month, 'all', periodId);
 
   return response.data;
 }
 
-async function fetchRecentHistoryItems(month: string) {
+async function fetchRecentHistoryItems(month: string, periodId?: string) {
   const token = await getAuthToken();
 
   if (!token) {
     return [];
   }
 
-  const response = await getTransactions(token, { limit: 4, month, page: 1 });
+  const response = await getTransactions(token, {
+    limit: 4,
+    month,
+    page: 1,
+    periodId,
+  });
 
   return response.data.map(mapTransactionToHistoryItem);
 }
 
-function useDashboardData(month: string) {
+function useDashboardData(month: string, periodId?: string) {
   const state = useDashboardLocalState();
   const refreshDashboard = () => (
-    loadDashboardData(month, getDashboardDataSetters(state))
+    loadDashboardData(month, periodId, getDashboardDataSetters(state))
   );
-  useInitialDashboardRefresh(refreshDashboard, month);
+  useInitialDashboardRefresh(refreshDashboard, month, periodId);
 
   return { ...state, refreshDashboard };
 }
@@ -668,17 +914,20 @@ function useDashboardData(month: string) {
 function useDashboardLocalState() {
   const [dashboardSummary, setDashboardSummary] =
     useState<DashboardSummary | null>(null);
+  const [budgetRefreshKey, setBudgetRefreshKey] = useState(0);
   const [chartAnimationKey, setChartAnimationKey] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [historyItems, setHistoryItems] = useState<HistoryItemData[]>([]);
   const [isRefreshing, setRefreshing] = useState(false);
 
   return {
+    budgetRefreshKey,
     chartAnimationKey,
     dashboardSummary,
     errorMessage,
     historyItems,
     isRefreshing,
+    setBudgetRefreshKey,
     setChartAnimationKey,
     setDashboardSummary,
     setErrorMessage,
@@ -691,6 +940,7 @@ function getDashboardDataSetters(
   state: ReturnType<typeof useDashboardLocalState>,
 ) {
   return {
+    setBudgetRefreshKey: state.setBudgetRefreshKey,
     setChartAnimationKey: state.setChartAnimationKey,
     setDashboardSummary: state.setDashboardSummary,
     setErrorMessage: state.setErrorMessage,
@@ -702,19 +952,25 @@ function getDashboardDataSetters(
 function useInitialDashboardRefresh(
   refreshDashboard: () => Promise<void>,
   month: string,
+  periodId?: string,
 ) {
   useEffect(() => {
     refreshDashboard().catch(() => undefined);
-  }, [month]);
+  }, [month, periodId]);
 }
 
-async function loadDashboardData(month: string, setters: DashboardDataSetters) {
+async function loadDashboardData(
+  month: string,
+  periodId: string | undefined,
+  setters: DashboardDataSetters,
+) {
   setters.setRefreshing(true);
 
   try {
-    const [summary, historyItems] = await fetchDashboardHomeData(month);
+    const [summary, historyItems] = await fetchDashboardHomeData(month, periodId);
     setters.setDashboardSummary(summary);
     setters.setHistoryItems(historyItems);
+    setters.setBudgetRefreshKey(key => key + 1);
     setters.setChartAnimationKey(key => key + 1);
     setters.setErrorMessage('');
   } catch (error) {
@@ -729,10 +985,10 @@ async function loadDashboardData(month: string, setters: DashboardDataSetters) {
   }
 }
 
-async function fetchDashboardHomeData(month: string) {
+async function fetchDashboardHomeData(month: string, periodId?: string) {
   const [summary, historyItems] = await Promise.all([
-    fetchDashboardSummary(month),
-    fetchRecentHistoryItems(month).catch(() => []),
+    fetchDashboardSummary(month, periodId),
+    fetchRecentHistoryItems(month, periodId).catch(() => []),
   ]);
 
   return [summary, historyItems] as const;
@@ -777,15 +1033,18 @@ function getDashboardContentDataProps(props: DashboardMainContentProps) {
   return {
     availablePeriod: props.dashboardData.dashboardSummary?.availablePeriod,
     apiMonth: props.apiMonth,
+    budgetRefreshKey: props.dashboardData.budgetRefreshKey,
     chartAnimationKey: props.dashboardData.chartAnimationKey,
     dashboardSummary: props.dashboardData.dashboardSummary,
     filterLabel: props.filterLabel,
     historyItems: props.dashboardData.historyItems,
     historyMonth: props.historyPeriodFilter.apiMonth,
     historyMonthLabel: props.historyPeriodFilter.label,
+    historyPeriodId: props.historyPeriodFilter.periodId,
     historyPeriod: props.historyPeriod,
     isFullHistoryVisible: props.sheets.isFullHistoryVisible,
     isRefreshing: props.dashboardData.isRefreshing,
+    periodId: props.periodId,
     selectedHistoryFilter: props.sheets.selectedHistoryFilter,
     selectedHistoryWalletId: props.sheets.selectedHistoryWalletId,
   };
@@ -808,7 +1067,10 @@ function DashboardScreen({ onLogout, onUpdateUser, user }: DashboardScreenProps)
   const period = usePeriodState();
   const historyPeriod = usePeriodState();
   const dashboardPeriod = getDashboardPeriod(period);
-  const dashboardData = useDashboardData(dashboardPeriod.apiMonth);
+  const dashboardData = useDashboardData(
+    dashboardPeriod.apiMonth,
+    dashboardPeriod.periodId,
+  );
 
   return (
     <DashboardScreenShell
@@ -867,6 +1129,7 @@ function DashboardSuccessMainContent(
       filterLabel={props.periodFilter.label}
       historyPeriod={props.historyPeriod}
       historyPeriodFilter={props.historyPeriodFilter}
+      periodId={props.periodFilter.periodId}
       onLogout={props.onLogout}
       onUpdateUser={props.onUpdateUser}
       sheets={props.sheets}
@@ -901,6 +1164,7 @@ function DashboardSuccessSheets(props: DashboardSuccessSheetsProps) {
       {...props.sheets}
       apiMonth={props.periodFilter.apiMonth}
       onDashboardChanged={props.dashboardData.refreshDashboard}
+      periodId={props.periodFilter.periodId}
     />
   );
 }

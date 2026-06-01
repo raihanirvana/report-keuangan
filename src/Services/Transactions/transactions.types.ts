@@ -29,6 +29,7 @@ type TransactionsQuery = {
   limit?: number;
   month?: string;
   page?: number;
+  periodId?: string;
   type?: TransactionType;
   walletId?: string;
 };
@@ -38,15 +39,14 @@ type CreateTransactionPayload = {
   categoryId?: string;
   fromWalletId?: string;
   note?: string;
+  occurredAt?: string;
   title: string;
   toWalletId?: string;
   type: TransactionType;
   walletId?: string;
 };
 
-type UpdateTransactionPayload = Partial<CreateTransactionPayload> & {
-  occurredAt?: string;
-};
+type UpdateTransactionPayload = Partial<CreateTransactionPayload>;
 
 export type {
   CreateTransactionPayload,

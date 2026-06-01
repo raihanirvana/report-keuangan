@@ -8,6 +8,7 @@ type DashboardUsageChartProps = {
   filterLabel: string;
   isLoading: boolean;
   onOpenUsagePeriod: () => void;
+  periodId?: string;
 };
 
 type IncomeChartState = {
