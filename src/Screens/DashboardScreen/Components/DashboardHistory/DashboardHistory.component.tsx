@@ -21,6 +21,7 @@ import {
 } from '../../../../Services';
 import { getAuthToken } from '../../../../Utils/authStorage';
 import { getCategoryIconValue } from '../../../../Utils/categoryIcons';
+import { formatPayrollPeriodLabel } from '../../../../Utils/periodLabels';
 import type {
   FullHistoryGroupData,
   HistoryFilter,
@@ -750,15 +751,31 @@ function FullHistoryPeriodList(props: { period: PeriodState }) {
   return (
     <View style={styles.periodOptionGrid}>
       {props.period.periods.map(period => (
-        <PeriodOption
+        <FullHistoryPeriodOption
           isActive={period.id === props.period.selectedPeriodId}
           key={period.id}
-          label={period.name || period.label}
-          meta={period.label}
           onPress={() => props.period.setSelectedPeriodId(period.id)}
+          period={period}
         />
       ))}
     </View>
+  );
+}
+
+function FullHistoryPeriodOption(props: {
+  isActive: boolean;
+  onPress: () => void;
+  period: PeriodState['periods'][number];
+}) {
+  const periodLabel = formatPayrollPeriodLabel(props.period);
+
+  return (
+    <PeriodOption
+      isActive={props.isActive}
+      label={props.period.name || periodLabel}
+      meta={periodLabel}
+      onPress={props.onPress}
+    />
   );
 }
 

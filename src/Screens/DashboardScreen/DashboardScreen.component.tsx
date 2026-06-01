@@ -30,6 +30,7 @@ import {
 } from '../../Services';
 import { colors } from '../../Theme';
 import { getAuthToken } from '../../Utils/authStorage';
+import { formatPayrollPeriodLabel } from '../../Utils/periodLabels';
 
 import { DashboardHeader } from './Components/DashboardHeader';
 import {
@@ -213,14 +214,16 @@ function PeriodCard(props: {
   onPress: () => void;
   period: PayrollPeriod;
 }) {
+  const periodLabel = formatPayrollPeriodLabel(props.period);
+
   return (
     <View style={[styles.periodCard, props.isActive && styles.periodCardActive]}>
       <Pressable onPress={props.onPress} style={styles.periodCardMain}>
         <Text style={[styles.periodOptionText, props.isActive && styles.periodOptionTextActive]}>
-          {props.period.name || props.period.label}
+          {props.period.name || periodLabel}
         </Text>
         <Text style={[styles.periodOptionMeta, props.isActive && styles.periodOptionMetaActive]}>
-          {props.period.label}
+          {periodLabel}
         </Text>
       </Pressable>
       <PeriodCardActions onDelete={props.onDelete} onEdit={props.onEdit} />
@@ -1079,10 +1082,13 @@ function getDashboardPeriod(period: PeriodState) {
     item => item.id === period.selectedPeriodId,
   );
   const monthIndex = getMonthNumber(period.selectedMonth);
+  const fallbackLabel = `${period.selectedMonth} ${period.selectedYear}`;
 
   return {
     apiMonth: `${period.selectedYear}-${String(monthIndex).padStart(2, '0')}`,
-    label: selectedPeriod?.label ?? `${period.selectedMonth} ${period.selectedYear}`,
+    label: selectedPeriod
+      ? formatPayrollPeriodLabel(selectedPeriod) || fallbackLabel
+      : fallbackLabel,
     periodId: selectedPeriod?.id,
   };
 }
@@ -1210,7 +1216,19 @@ async function reloadPeriods(period: PeriodState, selectedPeriodId?: string) {
   const fallback = response.data.find(item => item.isCurrent) ?? response.data[0];
 
   period.setPeriods(response.data);
-  period.setSelectedPeriodId(selectedPeriodId ?? fallback?.id ?? '');
+  period.setSelectedPeriodId(getAvailablePeriodId(response.data, selectedPeriodId, fallback?.id));
+}
+
+function getAvailablePeriodId(
+  periods: PayrollPeriod[],
+  selectedPeriodId?: string,
+  fallbackPeriodId = '',
+) {
+  if (selectedPeriodId && periods.some(period => period.id === selectedPeriodId)) {
+    return selectedPeriodId;
+  }
+
+  return fallbackPeriodId;
 }
 
 function getCurrentApiMonth() {
@@ -1328,22 +1346,46 @@ async function loadDashboardData(
   setters.setRefreshing(true);
 
   try {
-    const [summary, historyItems] = await fetchDashboardHomeData(month, periodId);
-    setters.setDashboardSummary(summary);
-    setters.setHistoryItems(historyItems);
-    setters.setBudgetRefreshKey(key => key + 1);
-    setters.setChartAnimationKey(key => key + 1);
-    setters.setErrorMessage('');
+    await loadDashboardDataAttempt(month, periodId, setters);
   } catch (error) {
-    if (isSessionExpiredError(error)) {
-      return;
-    }
-
-    setters.setDashboardSummary(null);
-    setters.setErrorMessage(getDashboardErrorMessage(error));
+    await handleDashboardLoadError(error, month, periodId, setters);
   } finally {
     setters.setRefreshing(false);
   }
+}
+
+async function loadDashboardDataAttempt(
+  month: string,
+  periodId: string | undefined,
+  setters: DashboardDataSetters,
+) {
+  const [summary, historyItems] = await fetchDashboardHomeData(month, periodId);
+
+  setters.setDashboardSummary(summary);
+  setters.setHistoryItems(historyItems);
+  setters.setBudgetRefreshKey(key => key + 1);
+  setters.setChartAnimationKey(key => key + 1);
+  setters.setErrorMessage('');
+}
+
+async function handleDashboardLoadError(
+  error: unknown,
+  month: string,
+  periodId: string | undefined,
+  setters: DashboardDataSetters,
+) {
+  if (periodId && isPeriodNotFoundError(error)) {
+    await loadDashboardDataAttempt(month, undefined, setters);
+
+    return;
+  }
+
+  if (isSessionExpiredError(error)) {
+    return;
+  }
+
+  setters.setDashboardSummary(null);
+  setters.setErrorMessage(getDashboardErrorMessage(error));
 }
 
 async function fetchDashboardHomeData(month: string, periodId?: string) {
@@ -1359,6 +1401,10 @@ function isSessionExpiredError(error: unknown) {
   return error instanceof Error && (
     error.message === 'Sesi sudah habis' || error.message === 'Unauthorized'
   );
+}
+
+function isPeriodNotFoundError(error: unknown) {
+  return error instanceof Error && error.message === 'Periode tidak ditemukan';
 }
 
 function getDashboardErrorMessage(error: unknown) {
