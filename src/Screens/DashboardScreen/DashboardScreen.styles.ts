@@ -171,12 +171,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  periodDateTimeText: {
-    color: colors.primary,
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '800',
-  },
   periodDateWeekRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -277,39 +271,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  periodTimeChip: {
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderColor: 'rgba(255, 204, 213, 0.56)',
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 9,
-    paddingVertical: 8,
-  },
-  periodTimeChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  periodTimeChipText: {
-    color: colors.slate600,
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  periodTimeChipTextActive: {
-    color: colors.white,
-  },
-  periodTimeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  periodTimePickerBox: {
-    gap: 14,
-  },
-  periodTimeSection: {
-    gap: 8,
   },
   periodInput: {
     backgroundColor: colors.white,

@@ -66,33 +66,6 @@ import type {
   UsagePeriodContentProps,
 } from './DashboardScreen.types';
 
-const periodTimeOptions = [
-  '00:00',
-  '01:00',
-  '02:00',
-  '03:00',
-  '04:00',
-  '05:00',
-  '06:00',
-  '07:00',
-  '08:00',
-  '09:00',
-  '10:00',
-  '11:00',
-  '12:00',
-  '13:00',
-  '14:00',
-  '15:00',
-  '16:00',
-  '17:00',
-  '18:00',
-  '19:00',
-  '20:00',
-  '21:00',
-  '22:00',
-  '23:00',
-] as const;
-
 function SheetBackButton(props: { isVisible?: boolean; onPress?: () => void }) {
   if (!props.isVisible) {
     return null;
@@ -323,7 +296,6 @@ function PeriodDateInputs(props: { form: ReturnType<typeof usePeriodForm> }) {
         <PeriodDateButton field="end" form={props.form} label="Sampai" />
       </View>
       <PeriodDatePickerPanel form={props.form} />
-      <PeriodTimePickers form={props.form} />
     </>
   );
 }
@@ -334,7 +306,6 @@ function PeriodDateButton(props: {
   label: string;
 }) {
   const value = props.field === 'start' ? props.form.startDate : props.form.endDate;
-  const time = props.field === 'start' ? props.form.startTime : props.form.endTime;
 
   return (
     <Pressable
@@ -343,71 +314,6 @@ function PeriodDateButton(props: {
     >
       <Text style={styles.periodDateLabel}>{props.label}</Text>
       <Text style={styles.periodDateValue}>{formatReadableDate(value)}</Text>
-      <Text style={styles.periodDateTimeText}>{time}</Text>
-    </Pressable>
-  );
-}
-
-function PeriodTimePickers(props: { form: ReturnType<typeof usePeriodForm> }) {
-  return (
-    <View style={styles.periodTimePickerBox}>
-      <PeriodTimePicker
-        label="Jam Mulai"
-        onSelectTime={props.form.setStartTime}
-        selectedTime={props.form.startTime}
-      />
-      <PeriodTimePicker
-        label="Jam Selesai"
-        onSelectTime={props.form.setEndTime}
-        selectedTime={props.form.endTime}
-      />
-    </View>
-  );
-}
-
-function PeriodTimePicker(props: {
-  label: string;
-  onSelectTime: (value: string) => void;
-  selectedTime: string;
-}) {
-  return (
-    <View style={styles.periodTimeSection}>
-      <Text style={styles.periodDateLabel}>{props.label}</Text>
-      <View style={styles.periodTimeGrid}>
-        {periodTimeOptions.map(time => (
-          <PeriodTimeChip
-            isActive={time === props.selectedTime}
-            key={time}
-            onPress={() => props.onSelectTime(time)}
-            time={time}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function PeriodTimeChip(props: {
-  isActive: boolean;
-  onPress: () => void;
-  time: string;
-}) {
-  return (
-    <Pressable
-      onPress={props.onPress}
-      style={[
-        styles.periodTimeChip,
-        props.isActive && styles.periodTimeChipActive,
-      ]}
-    >
-      <Text
-        style={[
-          styles.periodTimeChipText,
-          props.isActive && styles.periodTimeChipTextActive,
-        ]}
-      >
-        {props.time}
-      </Text>
     </Pressable>
   );
 }
@@ -871,8 +777,8 @@ function usePeriodForm(actions: UsagePeriodContentProps) {
 function usePeriodDateState() {
   const [startDate, setStartDate] = useState(getTodayInputDate());
   const [endDate, setEndDate] = useState(getNextMonthInputDate());
-  const [startTime, setStartTime] = useState('00:00');
-  const [endTime, setEndTime] = useState('00:00');
+  const [startTime, setStartTime] = useState(getCurrentInputTime());
+  const [endTime, setEndTime] = useState(getCurrentInputTime());
   const [activeDateField, setActiveDateField] = useState<PeriodDateField | null>(null);
   const [monthDate, setMonthDate] = useState(() => new Date());
 
@@ -921,9 +827,7 @@ function getPeriodFormActions(params: PeriodFormParams) {
     openDatePicker: (field: PeriodDateField) => openPeriodDatePicker(params, field),
     save: () => savePeriodForm(params),
     selectDate: (date: Date) => selectPeriodDate(params, date),
-    setEndTime: params.setEndTime,
     setName: params.setName,
-    setStartTime: params.setStartTime,
     shiftMonth: (amount: number) => params.setMonthDate(shiftMonth(params.monthDate, amount)),
   };
 }
@@ -980,14 +884,22 @@ async function runPeriodSave(params: PeriodFormParams) {
 function getPeriodPayload(params: {
   endDate: string;
   endTime: string;
+  mode: PeriodFormMode;
   name: string;
   startDate: string;
   startTime: string;
 }) {
+  const boundaryTime = params.mode === 'create'
+    ? getCurrentInputTime()
+    : params.startTime;
+  const endTime = params.mode === 'create'
+    ? boundaryTime
+    : params.endTime;
+
   return {
-    endDate: toPeriodBoundaryIso(params.endDate, params.endTime),
+    endDate: toPeriodBoundaryIso(params.endDate, endTime),
     name: params.name.trim() || undefined,
-    startDate: toPeriodBoundaryIso(params.startDate, params.startTime),
+    startDate: toPeriodBoundaryIso(params.startDate, boundaryTime),
   };
 }
 
@@ -1031,13 +943,15 @@ function selectPeriodDate(
 }
 
 function resetPeriodForm(params: PeriodFormParams) {
+  const currentTime = getCurrentInputTime();
+
   params.setMode('create');
   params.setEditingPeriodId('');
   params.setName('');
   params.setStartDate(getTodayInputDate());
   params.setEndDate(getNextMonthInputDate());
-  params.setStartTime('00:00');
-  params.setEndTime('00:00');
+  params.setStartTime(currentTime);
+  params.setEndTime(currentTime);
   params.setActiveDateField(null);
 }
 
@@ -1079,6 +993,10 @@ function formatInputTime(date: Date) {
   const minute = String(date.getMinutes()).padStart(2, '0');
 
   return `${hour}:${minute}`;
+}
+
+function getCurrentInputTime() {
+  return formatInputTime(new Date());
 }
 
 function isValidDateTimeInput(params: {
