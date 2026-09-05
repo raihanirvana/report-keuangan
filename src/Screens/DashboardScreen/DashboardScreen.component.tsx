@@ -509,7 +509,7 @@ function DashboardContent(props: DashboardContentProps) {
     >
       <DashboardHeader
         onLogout={props.onLogout}
-        onUpdateUser={props.onUpdateUser}
+        onUpdateName={props.onUpdateName}
         user={props.user}
       />
       <DashboardBodySections {...props} />
@@ -1431,7 +1431,7 @@ function getDashboardContentProps(
     ...getDashboardContentDataProps(props),
     ...getDashboardContentActionProps(props),
     onLogout: props.onLogout,
-    onUpdateUser: props.onUpdateUser,
+    onUpdateName: props.onUpdateName,
     user: props.user,
   };
 }
@@ -1476,7 +1476,7 @@ function getOpenFullHistoryHandler(props: DashboardMainContentProps) {
   };
 }
 
-function DashboardScreen({ onLogout, onUpdateUser, user }: DashboardScreenProps) {
+function DashboardScreen({ onLogout, onUpdateName, user }: DashboardScreenProps) {
   const sheets = useDashboardSheetState();
   const period = usePeriodState();
   const historyPeriod = usePeriodState();
@@ -1492,7 +1492,7 @@ function DashboardScreen({ onLogout, onUpdateUser, user }: DashboardScreenProps)
       historyPeriod={historyPeriod}
       periodFilter={dashboardPeriod}
       onLogout={onLogout}
-      onUpdateUser={onUpdateUser}
+      onUpdateName={onUpdateName}
       period={period}
       sheets={sheets}
       user={user}
@@ -1545,7 +1545,7 @@ function DashboardSuccessMainContent(
       historyPeriodFilter={props.historyPeriodFilter}
       periodId={props.periodFilter.periodId}
       onLogout={props.onLogout}
-      onUpdateUser={props.onUpdateUser}
+      onUpdateName={props.onUpdateName}
       sheets={props.sheets}
       user={props.user}
     />

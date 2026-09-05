@@ -15,13 +15,16 @@ import {
 import { DashboardScreen, LoginScreen, SplashScreen } from '../../Screens';
 import {
   getMe,
+  logout,
   setSessionExpiredHandler,
+  updateName,
   type AuthUser,
 } from '../../Services';
 import {
   clearAuthToken,
   getAuthToken,
   getAuthUser,
+  getRefreshToken,
   setAuthUser,
 } from '../../Utils/authStorage';
 
@@ -40,7 +43,7 @@ type AppContentProps = {
   isSplashVisible: boolean;
   onLogin: (user: AuthUser) => void;
   onLogout: () => Promise<void>;
-  onUpdateUser: (user: AuthUser) => Promise<void>;
+  onUpdateName: (name: string) => Promise<void>;
   user: AuthUser | null;
 };
 
@@ -67,7 +70,7 @@ function AppContent(props: AppContentProps) {
   return (
     <DashboardScreen
       onLogout={props.onLogout}
-      onUpdateUser={props.onUpdateUser}
+      onUpdateName={props.onUpdateName}
       user={props.user}
     />
   );
@@ -215,6 +218,10 @@ function createSessionExpiredConfirm(
 
 function createLogoutHandler(auth: AuthBootstrap) {
   return async () => {
+    const refreshToken = await getRefreshToken();
+    if (refreshToken) {
+      await logout(refreshToken);
+    }
     await clearAuthToken();
     auth.setLoggedIn(false);
     auth.setUser(null);
@@ -228,10 +235,15 @@ function createLoginHandler(auth: AuthBootstrap) {
   };
 }
 
-function createUpdateUserHandler(auth: AuthBootstrap) {
-  return async (user: AuthUser) => {
-    auth.setUser(user);
-    await setAuthUser(user).catch(() => undefined);
+function createUpdateNameHandler(auth: AuthBootstrap) {
+  return async (name: string) => {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('Sesi sudah habis. Silakan login ulang.');
+    }
+    const response = await updateName(token, name);
+    await setAuthUser(response.data);
+    auth.setUser(response.data);
   };
 }
 
@@ -246,7 +258,7 @@ function AppSafeContent(props: {
         isSplashVisible={props.auth.isSplashVisible}
         onLogin={createLoginHandler(props.auth)}
         onLogout={createLogoutHandler(props.auth)}
-        onUpdateUser={createUpdateUserHandler(props.auth)}
+        onUpdateName={createUpdateNameHandler(props.auth)}
         user={props.auth.user}
       />
     </SafeAreaView>

@@ -28,8 +28,25 @@ function getMe(token: string) {
   });
 }
 
+function updateName(token: string, name: string) {
+  return apiRequest<AuthUser>('/me', {
+    body: { name },
+    method: 'PATCH',
+    token,
+  });
+}
+
+function logout(refreshToken: string) {
+  return apiRequest<void>('/auth/logout', {
+    body: { refreshToken },
+    method: 'POST',
+  });
+}
+
 export {
   getMe,
   login,
+  logout,
   register,
+  updateName,
 };

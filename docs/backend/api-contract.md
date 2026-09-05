@@ -142,6 +142,20 @@ Response `200`:
 }
 ```
 
+### PATCH /me
+
+Requires `Authorization: Bearer <accessToken>`. Updates only the signed-in user's name.
+
+```json
+{ "name": "Caca Cute" }
+```
+
+The name is trimmed and must contain at least 2 characters after trimming.
+Response `200`: the same user envelope as `GET /me`, with the saved name.
+Invalid names return `400`; missing or invalid access tokens return `401`;
+a deleted user returns `404`. Other profile fields are not updated by this endpoint.
+
+
 ## Dashboard
 
 ### GET /dashboard/summary
